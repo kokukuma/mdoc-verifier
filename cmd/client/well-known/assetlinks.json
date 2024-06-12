@@ -1,0 +1,25 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "web",
+      "site": "https://client-kokukuma.jp.ngrok.io/"
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.my_app",
+      "sha256_cert_fingerprints": [
+        "2C:02:F4:E4:83:08:E2:79:74:8C:72:9B:6D:26:B2:71:B6:83:A9:47:E2:74:7C:F5:E3:77:BC:75:00:E7:F6:11"
+      ]
+    }
+  }
+]

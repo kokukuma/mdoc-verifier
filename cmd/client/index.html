@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>WebAuthn Demo</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+</head>
+
+
+<!-- For conditional UI -->
+<!-- <body onload="authenticateFIDOWithConditional();"> -->
+<body>
+
+  <br />
+  <br />
+  <button onclick="getIdentity()">Get Identity with preview</button>
+  <br />
+  <br />
+  <button onclick="getIdentityWithOpenid4VP()">Get Identity with openid4vp</button>
+
+  <script>
+    $(document).ready(function () {
+
+      // check whether current browser supports WebAuthn
+      if (!window.PublicKeyCredential) {
+        alert("Error: this browser does not support WebAuthn");
+        return;
+      }
+    });
+  </script>
+  <script src="index.js"></script>
+</body>
+
+</html>
