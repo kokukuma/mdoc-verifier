@@ -1,20 +1,27 @@
 package server
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/cisco/go-hpke"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/kouzoh/kokukuma-fido/internal/model"
+	"github.com/veraison/go-cose"
+
+	"github.com/fxamacker/cbor/v2"
 )
 
 var (
@@ -22,6 +29,8 @@ var (
 	b64 = base64.StdEncoding.WithPadding(base64.StdPadding)
 	// b64 = base64.RawURLEncoding.WithPadding(base64.NoPadding)
 	//b64 = base64.URLEncoding.WithPadding(base64.NoPadding)
+
+	roots = x509.NewCertPool()
 )
 
 const (
@@ -29,6 +38,19 @@ const (
 	privateKey = "XF8RGrj4bNixklczV7inHRLxgq34Q5NJm7_kkqdt9oQ="
 	publicKey  = "BMyxKlbxQ1R0otFQ-w3jM-P3wMrUMS8jpB_eFwRLYW4QQUq6iur-BdUUVh3QhPrMGU3UZXbWTVnL-1gJ3A07OUw="
 )
+
+func init() {
+	pems, err := loadCertificatesFromDirectory("./internal/server/pems")
+	if err != nil {
+		panic("failed to load rootCerts: " + err.Error())
+	}
+
+	for name, pem := range pems {
+		if ok := roots.AppendCertsFromPEM(pem); !ok {
+			fmt.Println("failed to load pem: " + name)
+		}
+	}
+}
 
 // DecodeBase64URL decodes a Base64URL encoded string, adding padding if necessary
 func DecodeBase64URL(encoded string) ([]byte, error) {
@@ -208,13 +230,145 @@ func (s *Server) VerifyResponse(w http.ResponseWriter, r *http.Request) {
 				if err := cbor.Unmarshal(val, &item); err != nil {
 					spew.Dump(err)
 				}
+				// TODO: hashの計算, MSOの値と比較
+				// IssuerSignedItemBytesを指定されたハッシュ関数でhash化
+				// digestIDで対応するhashを探して比較する
 				items = append(items, item)
 			}
 		}
+		spew.Dump("------------- doc.IssuerSigned.IssuerAuth")
+		spew.Dump(doc.IssuerSigned.IssuerAuth.Payload)
+
+		var topLevelData interface{}
+		err := cbor.Unmarshal(doc.IssuerSigned.IssuerAuth.Payload, &topLevelData)
+		if err != nil {
+			fmt.Println("Error unmarshalling top level CBOR:", err)
+			return
+		}
+
+		var mso MobileSecurityObject
+		if err := cbor.Unmarshal(topLevelData.(cbor.Tag).Content.([]byte), &mso); err != nil {
+			log.Fatalf("Error unmarshal cbor string: %v", err)
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+
+		alg, err := doc.IssuerSigned.IssuerAuth.Headers.Protected.Algorithm()
+		if err != nil {
+			log.Fatalf("Error unmarshal cbor string: %v", err)
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+
+		spew.Dump("------------- MobileSecurityObject")
+		spew.Dump(mso, alg)
+		// spew.Dump(doc.IssuerSigned.IssuerAuth.Headers.Protected)
+		// spew.Dump(doc.IssuerSigned.IssuerAuth.Headers.Unprotected)
+		rawX5Chain, ok := doc.IssuerSigned.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
+		if !ok {
+			log.Fatalf("failed to get x5chain")
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+		spew.Dump(rawX5Chain)
+
+		rawX5ChainBytes, ok := rawX5Chain.([][]byte)
+		if !ok {
+			rawX5ChainByte, ok := rawX5Chain.([]byte)
+			if !ok {
+				log.Fatalf("failed to get x5chain")
+				jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+				return
+			}
+			rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
+		}
+
+		// Assuming rawX5Chain is a slice of byte slices (each representing a DER encoded certificate)
+		certificates, err := parseCertificates(rawX5ChainBytes)
+		if err != nil {
+			log.Fatalf("Failed to parseCertificates: %v", err)
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+		documentSigningKey, ok := certificates[0].PublicKey.(*ecdsa.PublicKey)
+		if !ok {
+			log.Fatalf("Failed to parseCertificates: %v", err)
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+
+		// spew.Dump("------------- DeviceKey")
+		// spew.Dump(mso.DeviceKeyInfo.DeviceKey)
+		verifier, err := cose.NewVerifier(alg, documentSigningKey)
+		if err != nil {
+			log.Fatalf("Failed to create NewVerifier: %v", err)
+			jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+			return
+		}
+
+		spew.Dump("verify")
+		spew.Dump(doc.IssuerSigned.IssuerAuth.Verify(nil, verifier))
+		//
+
 	}
-	spew.Dump(items)
+	// spew.Dump("------------- items")
+	// spew.Dump(items)
 
 	jsonResponse(w, VerifyResponse{}, http.StatusOK)
+}
+
+func parseCertificates(rawCerts [][]byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	for _, certData := range rawCerts {
+		cert, err := x509.ParseCertificate(certData)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing certificate: %v", err)
+		}
+		certs = append(certs, cert)
+	}
+
+	// TODO: I don't have real mDL: current issuser is self-signed on Device.
+
+	// veirfy
+	// opts := x509.VerifyOptions{
+	// 	Roots:     roots,
+	// 	KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	// }
+
+	// // Perform the verification
+	// _, err := certs[0].Verify(opts)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+	// }
+
+	return certs, nil
+}
+
+func loadCertificatesFromDirectory(dirPath string) (map[string][]byte, error) {
+	pems := map[string][]byte{}
+
+	// Read files in directory
+	files, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over files
+	for _, file := range files {
+		if file.IsDir() {
+			continue // skip directories
+		}
+		if strings.HasSuffix(file.Name(), ".pem") {
+			filePath := filepath.Join(dirPath, file.Name())
+			data, err := ioutil.ReadFile(filePath)
+			if err != nil {
+				log.Printf("Failed to read file: %s, err: %v", filePath, err)
+				continue // continue with other files even if one fails
+			}
+			pems[file.Name()] = data
+		}
+	}
+	return pems, nil
 }
 
 // DecryptAndroidHPKEV1 decrypts the CipherText in the AndroidHPKEV1 struct using the provided recipient private key
@@ -249,7 +403,7 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 	}
 
 	// Decrypt the ciphertext
-	aad, err := generateBrowserSessionTranscript(nonce, origin, Digest(pubKey))
+	aad, err := generateBrowserSessionTranscript(nonce, origin, digest(pubKey))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aad: %v", err)
 	}
@@ -262,11 +416,11 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 
 	// packageName := "com.android.identity.wallet"
 	// packageName := "com.android.mdl.appreader"
-	// aad, err := generateAndroidSessionTranscript(nonce, packageName, Digest(pubKey))
+	// aad, err := generateAndroidSessionTranscript(nonce, packageName, digest(pubKey))
 	// spew.Dump(aad)
 	// spew.Dump(claims.CipherText)
 	// spew.Dump(base64.URLEncoding.EncodeToString(aad))
-	// spew.Dump(base64.URLEncoding.EncodeToString(Digest(claims.CipherText)))
+	// spew.Dump(base64.URLEncoding.EncodeToString(digest(claims.CipherText)))
 	// spew.Dump(base64.URLEncoding.EncodeToString(claims.EncryptionParameters.PKEM))
 
 	plainText, err := ctxR.Open(nil, claims.CipherText) // No associated data
@@ -280,7 +434,7 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 	return plainText, nil
 }
 
-func Digest(message []byte) []byte {
+func digest(message []byte) []byte {
 	hasher := sha256.New()
 	hasher.Write(message)
 	return hasher.Sum(nil)

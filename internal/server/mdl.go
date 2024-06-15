@@ -1,5 +1,14 @@
 package server
 
+import (
+	// "crypto"
+
+	"crypto"
+	"time"
+
+	"github.com/veraison/go-cose"
+)
+
 // ISO_IEC_18013-5_2021(en).pdf
 
 type DocType string
@@ -25,8 +34,8 @@ type Document struct {
 }
 
 type IssuerSigned struct {
-	NameSpaces IssuerNameSpaces `json:"nameSpaces"`
-	IssuerAuth []interface{}    `json:"issuerAuth"`
+	NameSpaces IssuerNameSpaces          `json:"nameSpaces"`
+	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
 type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes
@@ -51,12 +60,9 @@ type DeviceNameSpaces map[NameSpace]DeviceSignedItems
 
 type DeviceSignedItems map[DataElementIdentifier]DataElementValue
 
-// TODO:
-// DeviceMac:COSE_Mac0
-// DeviceSignature:COSE_Sign1
 type DeviceAuth struct {
-	DeviceSignature []interface{} `json:"deviceSignature"`
-	DeviceMac       []interface{} `json:"deviceMac"`
+	DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
+	DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
 }
 
 type DocumentError map[DocType]ErrorCode
@@ -66,3 +72,42 @@ type Errors map[NameSpace]ErrorItems
 type ErrorItems map[DataElementIdentifier]ErrorCode
 
 type ErrorCode int
+
+type MobileSecurityObject struct {
+	Version         string        `json:"version"`
+	DigestAlgorithm string        `json:"digestAlgorithm"`
+	ValueDigests    ValueDigests  `json:"valueDigests"`
+	DeviceKeyInfo   DeviceKeyInfo `json:"deviceKeyInfo"`
+	DocType         string        `json:"docType"`
+	ValidityInfo    ValidityInfo  `json:"validityInfo"`
+}
+
+type DeviceKeyInfo struct {
+	DeviceKey         COSEKey           `json:"deviceKey"`
+	KeyAuthorizations KeyAuthorizations `json:"keyAuthorizations,omitempty"`
+	KeyInfo           KeyInfo           `json:"keyInfo,omitempty"`
+}
+
+type COSEKey crypto.PublicKey
+
+type KeyAuthorizations struct {
+	NameSpaces   []string            `json:"nameSpaces,omitempty"`
+	DataElements map[string][]string `json:"dataElements,omitempty"`
+}
+
+type KeyInfo map[int]interface{}
+
+type ValueDigests map[NameSpace]DigestIDs
+
+type DigestIDs map[DigestID]Digest
+
+type ValidityInfo struct {
+	Signed         time.Time `json:"signed"`
+	ValidFrom      time.Time `json:"validFrom"`
+	ValidUntil     time.Time `json:"validUntil"`
+	ExpectedUpdate time.Time `json:"expectedUpdate,omitempty"`
+}
+
+type DigestID uint
+
+type Digest []byte
