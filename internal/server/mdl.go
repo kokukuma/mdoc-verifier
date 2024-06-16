@@ -3,13 +3,59 @@ package server
 import (
 	// "crypto"
 
+	"bytes"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"crypto/sha512"
+	"crypto/x509"
+	"fmt"
+	"hash"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/veraison/go-cose"
 )
 
 // ISO_IEC_18013-5_2021(en).pdf
+var (
+	FamilyNameField = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "family_name",
+		IntentToRetain: false,
+	}
+
+	GivenNameField = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "given_name",
+		IntentToRetain: false,
+	}
+
+	AgeOver21Field = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "age_over_21",
+		IntentToRetain: false,
+	}
+
+	DocumentNumberField = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "document_number",
+		IntentToRetain: false,
+	}
+
+	PortraitField = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "portrait",
+		IntentToRetain: false,
+	}
+
+	DrivingPrivilegesField = Field{
+		Namespace:      "org.iso.18013.5.1",
+		Name:           "driving_privileges",
+		IntentToRetain: false,
+	}
+)
 
 type DocType string
 
@@ -36,6 +82,147 @@ type Document struct {
 type IssuerSigned struct {
 	NameSpaces IssuerNameSpaces          `json:"nameSpaces"`
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
+}
+
+type cborType uint8
+
+const (
+	cborTypeTag  cborType = 0xd8
+	cborTypeCbor cborType = 0x24
+)
+
+func (i IssuerSigned) VerifiedElements() ([]IssuerSignedItem, error) {
+	items := []IssuerSignedItem{}
+
+	mso, err := i.GetMobileSecurityObject()
+	if err != nil {
+		return nil, fmt.Errorf("GetMobileSecurityObject: %v", err)
+	}
+
+	for ns, vals := range i.NameSpaces {
+		digestIDs, ok := mso.ValueDigests[ns]
+		if !ok {
+			return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
+		}
+
+		for _, val := range vals {
+			v, err := cbor.Marshal(cbor.Tag{
+				Number:  24,
+				Content: val,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			var item IssuerSignedItem
+			if err := cbor.Unmarshal(val, &item); err != nil {
+				return nil, err
+			}
+			digest, ok := digestIDs[DigestID(item.DigestID)]
+			if !ok {
+				return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
+			}
+
+			if !bytes.Equal(digest, calcDigest(v, mso.DigestAlgorithm)) {
+				return nil, fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
+			}
+
+			items = append(items, item)
+		}
+	}
+
+	return items, nil
+}
+
+func calcDigest(message []byte, alg string) []byte {
+	var hasher hash.Hash
+	switch alg {
+	case "SHA-256":
+		hasher = sha256.New()
+	// case "SHA-384":
+	// 	hasher = sha384.New()
+	case "SHA-512":
+		hasher = sha512.New()
+	}
+	hasher.Write(message)
+	return hasher.Sum(nil)
+}
+
+func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
+	alg, err := i.IssuerAuth.Headers.Protected.Algorithm()
+	if err != nil {
+		return fmt.Errorf("failed to get alg %w", err)
+	}
+	rawX5Chain, ok := i.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
+	if !ok {
+		return fmt.Errorf("failed to get x5chain")
+	}
+	spew.Dump(rawX5Chain)
+
+	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
+	if !ok {
+		rawX5ChainByte, ok := rawX5Chain.([]byte)
+		if !ok {
+			return fmt.Errorf("failed to get x5chain")
+		}
+		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
+	}
+
+	certificates, err := parseCertificates(rawX5ChainBytes, roots)
+	if err != nil {
+		return fmt.Errorf("Failed to parseCertificates: %v", err)
+	}
+	documentSigningKey, ok := certificates[0].PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("Failed to parseCertificates: %v", err)
+	}
+
+	verifier, err := cose.NewVerifier(alg, documentSigningKey)
+	if err != nil {
+		return fmt.Errorf("Failed to create NewVerifier: %v", err)
+	}
+
+	return i.IssuerAuth.Verify(nil, verifier)
+}
+
+func parseCertificates(rawCerts [][]byte, roots *x509.CertPool) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	for _, certData := range rawCerts {
+		cert, err := x509.ParseCertificate(certData)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing certificate: %v", err)
+		}
+		certs = append(certs, cert)
+	}
+
+	// veirfy
+	opts := x509.VerifyOptions{
+		Roots:     roots,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	// Perform the verification
+	_, err := certs[0].Verify(opts)
+	if err != nil {
+		// TODO: I don't have real mDL: current issuser is self-signed on Device.
+		//return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+	}
+
+	return certs, nil
+}
+
+func (i IssuerSigned) GetMobileSecurityObject() (*MobileSecurityObject, error) {
+	var topLevelData interface{}
+	err := cbor.Unmarshal(i.IssuerAuth.Payload, &topLevelData)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshalling top level CBOR: %w", err)
+	}
+
+	var mso MobileSecurityObject
+	if err := cbor.Unmarshal(topLevelData.(cbor.Tag).Content.([]byte), &mso); err != nil {
+		return nil, fmt.Errorf("Error unmarshal cbor string: %w", err)
+	}
+	return &mso, nil
 }
 
 type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes

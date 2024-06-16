@@ -20,7 +20,7 @@ func main() {
 		handlers.AllowCredentials(),
 	))
 
-	r.HandleFunc("/getRequest", srv.GetRequest).Methods("POST", "OPTIONS")
+	r.HandleFunc("/getIdentityRequest", srv.GetIdentityRequest).Methods("POST", "OPTIONS")
 	r.HandleFunc("/verifyResponse", srv.VerifyResponse).Methods("POST", "OPTIONS")
 
 	serverAddress := ":8080"

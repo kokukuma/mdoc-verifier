@@ -41,6 +41,21 @@ function bufferEncode(value) {
 
 async function getIdentityWithOpenid4VP() {
   try {
+    const req = await $.post(
+        'https://fido-kokukuma.jp.ngrok.io/getIdentityRequest',
+        JSON.stringify({
+          protocol: "openid4vp",
+        }),
+        function (data, status) {
+          return data
+        },
+        'json').fail(function(response) {
+            console.log(response);
+            alert("failed to get request" + response);
+        });
+    console.log(req)
+
+
     const controller = new AbortController();
     const signal = controller.signal;
     const response = await navigator.identity.get({
@@ -48,51 +63,11 @@ async function getIdentityWithOpenid4VP() {
         digital: {
           providers: [{
             protocol: "openid4vp",
-            request: JSON.stringify({
-              client_id: "digital-credentials.dev",
-              client_id_scheme: "web-origin",
-              resopnse_type: "vp_token",
-              nonce: "dIMeIndW3K81jFV7PKbdDcusanByIfMB9DBPo8Wu1i4=",
-              presentation_definition: {
-                id: "mDL-request-demo",
-                input_descriptors: [{
-                  id: "org.iso.18013.5.1.mDL",
-                  format: {
-                    mso_mdoc: {
-                      alg: ["ES256"]
-                    }
-                  },
-                  constraints: {
-                    limit_disclosure: "required",
-                    fields: [
-                      {
-                        path: ["$['org.iso.18013.5.1']['family_name']"],
-                        intent_to_retain: false
-                      },
-                      {
-                        path: ["$['org.iso.18013.5.1']['given_name']"],
-                        intent_to_retain: false
-                      },
-                      {
-                        path: ["$['org.iso.18013.5.1']['age_over_21']"],
-                        intent_to_retain: false
-                      }
-                    ]
-                  }
-                }]
-              }
-            })
+            request: req,
           }],
         }
     });
     console.log(response)
-    console.log(response.protocol)
-    console.log(response.data)
-
-    // console.log(base64UrlDecode(response.data))
-
-    // echo $(response.data) | base64 -D | cbor export --format=json
-    // alert(response.data)
 
     const result = await $.post(
         'https://fido-kokukuma.jp.ngrok.io/verifyResponse',
@@ -120,7 +95,7 @@ async function getIdentity() {
   // Gets a CBOR with specific fields out of mobile driver's license as an mdoc
   try {
     const req = await $.post(
-        'https://fido-kokukuma.jp.ngrok.io/getRequest',
+        'https://fido-kokukuma.jp.ngrok.io/getIdentityRequest',
         JSON.stringify({
           protocol: "preview",
         }),
@@ -129,7 +104,7 @@ async function getIdentity() {
         },
         'json').fail(function(response) {
             console.log(response);
-            alert("register/finish returns error");
+            alert("failed to get request" + response);
         });
     console.log(req)
 
@@ -140,60 +115,12 @@ async function getIdentity() {
         signal: signal,
         digital: {
           providers: [{
-            // protocol: "basic",
             protocol: "preview",
-            request: JSON.stringify({
-              selector: {
-                format: ["mdoc"],
-                retention: {days: 90},
-                doctype: "org.iso.18013.5.1.mDL",
-                fields: [
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "family_name",
-                    intentToRetain: false
-                  },
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "given_name",
-                    intentToRetain: false
-                  },
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "age_over_21",
-                    intentToRetain: false
-                  },
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "document_number",
-                    intentToRetain: false
-                  },
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "portrait",
-                    intentToRetain: false
-                  },
-                  {
-                    namespace: "org.iso.18013.5.1",
-                    name: "driving_privileges",
-                    intentToRetain: false
-                  },
-                ],
-              },
-              nonce: req.nonce,
-              readerPublicKey: req.public_key,
-            })
+            request: req,
           }],
         }
     });
     console.log(response)
-    console.log(response.protocol)
-    console.log(response.data)
-    // verify and get information from
-    // * protocol: response.protocol
-    // * data: response.data
-    // * sate: request['state'] -> nonce, private_key, public_key
-    // * origin: location.origin
 
     const result = await $.post(
         'https://fido-kokukuma.jp.ngrok.io/verifyResponse',
