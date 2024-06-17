@@ -9,6 +9,8 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+// https://github.com/openwallet-foundation-labs/identity-credential/blob/da5991c34f4d3356606e68b9376419c7f9c62cb3/appholder/src/main/java/com/android/identity/wallet/GetCredentialActivity.kt#L163
+
 var (
 	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
 )
@@ -30,13 +32,6 @@ type Field struct {
 	Namespace      string `json:"namespace"`
 	Name           string `json:"name"`
 	IntentToRetain bool   `json:"intentToRetain"`
-}
-
-func (f Field) PathField() PathField {
-	return PathField{
-		Path:           []string{fmt.Sprintf("$['%s']['%s']", f.Namespace, f.Name)},
-		IntentToRetain: f.IntentToRetain,
-	}
 }
 
 type Retention struct {

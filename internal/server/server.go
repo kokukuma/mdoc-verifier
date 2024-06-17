@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/kouzoh/kokukuma-identity-wallet/internal/exchange_protocol"
 )
 
 var (
@@ -71,7 +72,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Protocol {
 	case "preview":
-		idReq = &IdentityRequestPreview{
+		idReq = &exchange_protocol.IdentityRequestPreview{
 			Selector: Selector{
 				Format:    []string{"mdoc"},
 				Retention: Retention{Days: 90},
@@ -103,11 +104,16 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 						},
 						Constraints: Constraints{
 							LimitDisclosure: "required",
-							Fields: []PathField{
-								FamilyNameField.PathField(),
-								GivenNameField.PathField(),
-								AgeOver21Field.PathField(),
-							},
+							Fields: ConvPathField(
+								FamilyNameField,
+								GivenNameField,
+								AgeOver21Field,
+							),
+							// Fields: []PathField{
+							// 	FamilyNameField.PathField(),
+							// 	GivenNameField.PathField(),
+							// 	AgeOver21Field.PathField(),
+							// },
 						},
 					},
 				},
