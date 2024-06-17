@@ -1,4 +1,4 @@
-module github.com/kouzoh/kokukuma-fido
+module github.com/kouzoh/kokukuma-identity-wallet
 
 go 1.17
 

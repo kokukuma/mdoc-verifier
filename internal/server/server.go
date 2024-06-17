@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kouzoh/kokukuma-identity-wallet/internal/exchange_protocol"
+	ep "github.com/kokukuma/kokukuma-identity-wallet/internal/exchange_protocol"
 )
 
 var (
@@ -72,42 +72,42 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Protocol {
 	case "preview":
-		idReq = &exchange_protocol.IdentityRequestPreview{
-			Selector: Selector{
+		idReq = &ep.IdentityRequestPreview{
+			Selector: ep.Selector{
 				Format:    []string{"mdoc"},
-				Retention: Retention{Days: 90},
+				Retention: ep.Retention{Days: 90},
 				DocType:   "org.iso.18013.5.1.mDL",
-				Fields: []Field{
-					FamilyNameField,
-					GivenNameField,
-					DocumentNumberField,
+				Fields: []ep.Field{
+					ep.FamilyNameField,
+					ep.GivenNameField,
+					ep.DocumentNumberField,
 				},
 			},
 			Nonce:           nonce,
 			ReaderPublicKey: publicKey,
 		}
 	case "openid4vp":
-		idReq = &IdentityRequestOpenID4VP{
+		idReq = &ep.IdentityRequestOpenID4VP{
 			ClientID:       "digital-credentials.dev",
 			ClientIDScheme: "web-origin",
 			ResponseType:   "vp_token",
 			Nonce:          nonce,
-			PresentationDefinition: PresentationDefinition{
+			PresentationDefinition: ep.PresentationDefinition{
 				ID: "mDL-request-demo",
-				InputDescriptors: []InputDescriptor{
+				InputDescriptors: []ep.InputDescriptor{
 					{
 						ID: "org.iso.18013.5.1.mDL",
-						Format: Format{
-							MsoMdoc: MsoMdoc{
+						Format: ep.Format{
+							MsoMdoc: ep.MsoMdoc{
 								Alg: []string{"ES256"},
 							},
 						},
-						Constraints: Constraints{
+						Constraints: ep.Constraints{
 							LimitDisclosure: "required",
-							Fields: ConvPathField(
-								FamilyNameField,
-								GivenNameField,
-								AgeOver21Field,
+							Fields: ep.ConvPathField(
+								ep.FamilyNameField,
+								ep.GivenNameField,
+								ep.AgeOver21Field,
 							),
 							// Fields: []PathField{
 							// 	FamilyNameField.PathField(),
