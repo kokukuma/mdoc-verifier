@@ -3,6 +3,7 @@
 ## links
 * [HOWTO: Try the Prototype API in Chrome Android](https://github.com/WICG/digital-credentials/wiki/HOWTO%3A-Try-the-Prototype-API-in-Chrome-Android)
 * [Digital Credentials](https://wicg.github.io/digital-credentials/#protocol-registry)
+* [Verifying Wallet identity requests](https://developer.apple.com/documentation/passkit_apple_pay_and_wallet/wallet/verifying_wallet_identity_requests)
 
 
 

@@ -1,4 +1,4 @@
-package server
+package exchange_protocol
 
 import (
 	"fmt"

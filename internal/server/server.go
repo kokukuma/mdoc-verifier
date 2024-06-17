@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,11 +11,15 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	ep "github.com/kokukuma/kokukuma-identity-wallet/internal/exchange_protocol"
+	ep "github.com/kokukuma/identity-credential-api-demo/internal/exchange_protocol"
+	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
 )
 
 var (
 	roots *x509.CertPool
+	b64   = base64.URLEncoding.WithPadding(base64.StdPadding)
+
+	privateKeyByte, publicKeyByte, nonceByte []byte
 )
 
 const (
@@ -26,9 +31,24 @@ const (
 
 func init() {
 	var err error
-	roots, err = GetRootCertificates("./internal/server/pems")
+	roots, err = mdoc.GetRootCertificates("./internal/server/pems")
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
+	}
+
+	privateKeyByte, err = b64.DecodeString(privateKey)
+	if err != nil {
+		panic("failed to decode privateKey: " + err.Error())
+	}
+
+	publicKeyByte, err = b64.DecodeString(publicKey)
+	if err != nil {
+		panic("failed to decode publicKey: " + err.Error())
+	}
+
+	nonceByte, err = b64.DecodeString(nonce)
+	if err != nil {
+		panic("failed to decode nonce: " + err.Error())
 	}
 }
 
@@ -55,9 +75,9 @@ type VerifyResponse struct {
 }
 
 type Element struct {
-	NameSpace  NameSpace             `json:"namespace"`
-	Identifier DataElementIdentifier `json:"identifier"`
-	Value      DataElementValue      `json:"value"`
+	NameSpace  mdoc.NameSpace             `json:"namespace"`
+	Identifier mdoc.DataElementIdentifier `json:"identifier"`
+	Value      mdoc.DataElementValue      `json:"value"`
 }
 
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
@@ -109,11 +129,6 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 								ep.GivenNameField,
 								ep.AgeOver21Field,
 							),
-							// Fields: []PathField{
-							// 	FamilyNameField.PathField(),
-							// 	GivenNameField.PathField(),
-							// 	AgeOver21Field.PathField(),
-							// },
 						},
 					},
 				},
@@ -134,14 +149,16 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 	spew.Dump(req)
 
-	var devResp *DeviceResponse
+	var devResp *mdoc.DeviceResponse
 	var err error
 
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = ParseOpenID4VP(req.Data)
+		devResp, err = ep.ParseOpenID4VP(req.Data)
 	case "preview":
-		devResp, err = ParsePreview(req.Data, req.Origin)
+		devResp, err = ep.ParsePreview(req.Data, req.Origin, privateKeyByte, publicKeyByte, nonceByte)
+	case "apple":
+		devResp, err = ep.ParseApple(req.Data, "merchantID", "temaID", privateKeyByte, publicKeyByte, nonceByte)
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)

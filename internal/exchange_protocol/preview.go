@@ -1,12 +1,16 @@
-package server
+package exchange_protocol
 
 import (
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash"
 
 	"github.com/cisco/go-hpke"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
 )
 
 // https://github.com/openwallet-foundation-labs/identity-credential/blob/da5991c34f4d3356606e68b9376419c7f9c62cb3/appholder/src/main/java/com/android/identity/wallet/GetCredentialActivity.kt#L163
@@ -52,7 +56,17 @@ type EncryptionParameters struct {
 	PKEM []byte `json:"pkEm"`
 }
 
-func ParsePreview(data, origin string) (*DeviceResponse, error) {
+func parseHPKEEnvelope(a *AndroidHPKEV1) *HPKEEnvelope {
+	return &HPKEEnvelope{
+		Algorithm: a.Version,
+		Params: HPKEParams{
+			PkEM: a.EncryptionParameters.PKEM,
+		},
+		Data: a.CipherText,
+	}
+}
+
+func ParsePreview(data, origin string, privateKeyByte, publicKeyByte, nonceByte []byte) (*mdoc.DeviceResponse, error) {
 	var msg PreviewData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
@@ -68,12 +82,18 @@ func ParsePreview(data, origin string) (*DeviceResponse, error) {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
 
-	plaintext, err := DecryptAndroidHPKEV1(&claims, privateKey, publicKey, nonce, origin)
+	// Decrypt the ciphertext
+	info, err := generateBrowserSessionTranscript(nonceByte, origin, calcDigest(publicKeyByte, "SHA-256"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create aad: %v", err)
+	}
+
+	plaintext, err := DecryptHPKE(parseHPKEEnvelope(&claims), privateKeyByte, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error decryptAndroidHPKEV1: %v", err)
 	}
 
-	var deviceResp DeviceResponse
+	var deviceResp mdoc.DeviceResponse
 	if err := cbor.Unmarshal(plaintext, &deviceResp); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
@@ -82,23 +102,8 @@ func ParsePreview(data, origin string) (*DeviceResponse, error) {
 }
 
 // DecryptAndroidHPKEV1 decrypts the CipherText in the AndroidHPKEV1 struct using the provided recipient private key
-func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubKey, nonceStr, origin string) ([]byte, error) {
-	// Decode base64 encoded recipient private key to byte slice
-	//privKey, err := base64.StdEncoding.DecodeString(recipientPrivKey)
-	privKey, err := b64.DecodeString(recipientPrivKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
-	}
-
-	pubKey, err := b64.DecodeString(recipientPubKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
-	}
-
-	nonce, err := b64.DecodeString(nonceStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
-	}
+// func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubKey, nonceStr, origin string) ([]byte, error) {
+func DecryptHPKE(claims *HPKEEnvelope, recipientPrivKey, info []byte) ([]byte, error) {
 
 	// Initialize the HPKE context
 	suite, err := hpke.AssembleCipherSuite(hpke.DHKEM_P256, hpke.KDF_HKDF_SHA256, hpke.AEAD_AESGCM128)
@@ -107,24 +112,18 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 	}
 
 	// Deserialize the recipient's private key
-	skR, err := suite.KEM.DeserializePrivateKey(privKey)
+	skR, err := suite.KEM.DeserializePrivateKey(recipientPrivKey)
 	if err != nil {
 		return nil, fmt.Errorf("error deserializing private key: %v", err)
 	}
 
-	// Decrypt the ciphertext
-	aad, err := generateBrowserSessionTranscript(nonce, origin, calcDigest(pubKey, "SHA-256"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create aad: %v", err)
-	}
-
 	// Setup the HPKE receiver context using SetupBaseR
-	ctxR, err := hpke.SetupBaseR(suite, skR, claims.EncryptionParameters.PKEM, aad)
+	ctxR, err := hpke.SetupBaseR(suite, skR, claims.Params.PkEM, info)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up receiver context: %v", err)
 	}
 
-	plainText, err := ctxR.Open(nil, claims.CipherText) // No associated data
+	plainText, err := ctxR.Open(nil, claims.Data) // No associated data
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting ciphertext: %v", err)
 	}
@@ -133,4 +132,18 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 	fmt.Printf("Decrypted text: %s\n", base64.URLEncoding.EncodeToString(plainText))
 
 	return plainText, nil
+}
+
+func calcDigest(message []byte, alg string) []byte {
+	var hasher hash.Hash
+	switch alg {
+	case "SHA-256":
+		hasher = sha256.New()
+	// case "SHA-384":
+	// 	hasher = sha384.New()
+	case "SHA-512":
+		hasher = sha512.New()
+	}
+	hasher.Write(message)
+	return hasher.Sum(nil)
 }

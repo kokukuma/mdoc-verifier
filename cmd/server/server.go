@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/kokukuma/kokukuma-identity-wallet/internal/server"
+	"github.com/kokukuma/identity-credential-api-demo/internal/server"
 )
 
 func main() {

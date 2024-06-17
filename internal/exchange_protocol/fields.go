@@ -3,6 +3,7 @@ package exchange_protocol
 import "fmt"
 
 // ISO_IEC_18013-5_2021(en).pdf
+
 var (
 	FamilyNameField = Field{
 		Namespace:      "org.iso.18013.5.1",

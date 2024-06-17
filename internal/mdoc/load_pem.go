@@ -1,4 +1,4 @@
-package server
+package mdoc
 
 import (
 	"crypto/x509"

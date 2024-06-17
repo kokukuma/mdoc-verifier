@@ -1,10 +1,11 @@
-package server
+package exchange_protocol
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
 )
 
 // https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
@@ -49,7 +50,7 @@ type OpenID4VPData struct {
 	VPToken string `json:"vp_token"`
 }
 
-func ParseOpenID4VP(data string) (*DeviceResponse, error) {
+func ParseOpenID4VP(data string) (*mdoc.DeviceResponse, error) {
 	var msg OpenID4VPData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
@@ -60,7 +61,7 @@ func ParseOpenID4VP(data string) (*DeviceResponse, error) {
 		return nil, fmt.Errorf("failed to decode base64")
 	}
 
-	var claims DeviceResponse
+	var claims mdoc.DeviceResponse
 	if err := cbor.Unmarshal(decoded, &claims); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}

@@ -1,4 +1,4 @@
-module github.com/kouzoh/kokukuma-identity-wallet
+module github.com/kokukuma/identity-credential-api-demo
 
 go 1.17
 
