@@ -7,6 +7,8 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+// https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+
 type IdentityRequestOpenID4VP struct {
 	ClientID               string                 `json:"client_id"`
 	ClientIDScheme         string                 `json:"client_id_scheme"`
@@ -36,7 +38,7 @@ type PathField struct {
 }
 
 type Format struct {
-	MsoMdoc MsoMdoc `json:"mso_mdoc"`
+	MsoMdoc MsoMdoc `json:"mso_mdoc,omitempty"`
 }
 
 type MsoMdoc struct {
@@ -53,7 +55,7 @@ func ParseOpenID4VP(data string) (*DeviceResponse, error) {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
-	decoded, err := DecodeBase64URL(msg.VPToken)
+	decoded, err := b64.DecodeString(msg.VPToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode base64")
 	}

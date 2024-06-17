@@ -2,75 +2,33 @@ package server
 
 import (
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kouzoh/kokukuma-fido/internal/model"
 )
 
 var (
-	// decoded, err := base64.RawURLEncoding.DecodeString(msg.Token)
-	b64 = base64.StdEncoding.WithPadding(base64.StdPadding)
-	// b64 = base64.RawURLEncoding.WithPadding(base64.NoPadding)
-	//b64 = base64.URLEncoding.WithPadding(base64.NoPadding)
-
-	roots = x509.NewCertPool()
+	roots *x509.CertPool
 )
 
 const (
+	// Fixed for debugging
 	nonce      = "AS59uzWiXXXM5KkCBoO_q_syN1yXfrRABJ6Jtik3fas="
 	privateKey = "XF8RGrj4bNixklczV7inHRLxgq34Q5NJm7_kkqdt9oQ="
 	publicKey  = "BMyxKlbxQ1R0otFQ-w3jM-P3wMrUMS8jpB_eFwRLYW4QQUq6iur-BdUUVh3QhPrMGU3UZXbWTVnL-1gJ3A07OUw="
 )
 
 func init() {
-	pems, err := loadCertificatesFromDirectory("./internal/server/pems")
+	var err error
+	roots, err = GetRootCertificates("./internal/server/pems")
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
 	}
-
-	for name, pem := range pems {
-		if ok := roots.AppendCertsFromPEM(pem); !ok {
-			fmt.Println("failed to load pem: " + name)
-		}
-	}
-}
-
-func loadCertificatesFromDirectory(dirPath string) (map[string][]byte, error) {
-	pems := map[string][]byte{}
-
-	// Read files in directory
-	files, err := ioutil.ReadDir(dirPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Iterate over files
-	for _, file := range files {
-		if file.IsDir() {
-			continue // skip directories
-		}
-		if strings.HasSuffix(file.Name(), ".pem") {
-			filePath := filepath.Join(dirPath, file.Name())
-			data, err := ioutil.ReadFile(filePath)
-			if err != nil {
-				log.Printf("Failed to read file: %s, err: %v", filePath, err)
-				continue // continue with other files even if one fails
-			}
-			pems[file.Name()] = data
-		}
-	}
-	return pems, nil
 }
 
 func NewServer() *Server {
@@ -78,9 +36,7 @@ func NewServer() *Server {
 }
 
 type Server struct {
-	mu       sync.RWMutex
-	users    *model.Users
-	sessions *model.Sessions
+	mu sync.RWMutex
 }
 
 type GetRequest struct {
@@ -93,32 +49,26 @@ type VerifyRequest struct {
 	Origin   string `json:"origin"`
 }
 
-type VerifyResponse struct{}
+type VerifyResponse struct {
+	Elements []Element `json:"elements"`
+}
 
-func parseJSON(r *http.Request, v interface{}) error {
-	if r == nil || r.Body == nil {
-		return errors.New("No request given")
-	}
-
-	defer r.Body.Close()
-	defer io.Copy(io.Discard, r.Body)
-
-	err := json.NewDecoder(r.Body).Decode(v)
-	if err != nil {
-		return err
-	}
-	return nil
+type Element struct {
+	NameSpace  NameSpace             `json:"namespace"`
+	Identifier DataElementIdentifier `json:"identifier"`
+	Value      DataElementValue      `json:"value"`
 }
 
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := GetRequest{}
 	if err := parseJSON(r, &req); err != nil {
-		spew.Dump(err)
-		jsonResponse(w, fmt.Errorf("must supply a valid username i.e. foo@bar.com"), http.StatusBadRequest)
+		jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
 	}
+	spew.Dump(req)
 
 	var idReq interface{}
+
 	switch req.Protocol {
 	case "preview":
 		idReq = &IdentityRequestPreview{
@@ -164,27 +114,28 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 	}
+
 	jsonResponse(w, idReq, http.StatusOK)
 
 	return
 }
 
-func (s *Server) VerifyResponse(w http.ResponseWriter, r *http.Request) {
-	resp := VerifyRequest{}
-	if err := parseJSON(r, &resp); err != nil {
+func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) {
+	req := VerifyRequest{}
+	if err := parseJSON(r, &req); err != nil {
 		jsonResponse(w, fmt.Errorf("must supply a valid username i.e. foo@bar.com"), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(resp)
+	spew.Dump(req)
 
 	var devResp *DeviceResponse
 	var err error
 
-	switch resp.Protocol {
+	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = ParseOpenID4VP(resp.Data)
+		devResp, err = ParseOpenID4VP(req.Data)
 	case "preview":
-		devResp, err = ParsePreview(resp.Data, resp.Origin)
+		devResp, err = ParsePreview(req.Data, req.Origin)
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
@@ -192,21 +143,46 @@ func (s *Server) VerifyResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	spew.Dump(devResp)
 
+	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
 		if err := doc.IssuerSigned.VerifyIssuerAuth(roots); err != nil {
 			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		items, err := doc.IssuerSigned.VerifiedElements()
+		itemsmap, err := doc.IssuerSigned.VerifiedElements()
 		if err != nil {
 			fmt.Println("VerifiedElements:", err)
 			return
 		}
-		spew.Dump(items)
+
+		for ns, items := range itemsmap {
+			for _, item := range items {
+				resp.Elements = append(resp.Elements, Element{
+					NameSpace:  ns,
+					Identifier: item.ElementIdentifier,
+					Value:      item.ElementValue,
+				})
+			}
+		}
 	}
 
-	jsonResponse(w, VerifyResponse{}, http.StatusOK)
+	jsonResponse(w, resp, http.StatusOK)
+}
+
+func parseJSON(r *http.Request, v interface{}) error {
+	if r == nil || r.Body == nil {
+		return errors.New("No request given")
+	}
+
+	defer r.Body.Close()
+	defer io.Copy(io.Discard, r.Body)
+
+	err := json.NewDecoder(r.Body).Decode(v)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
@@ -217,19 +193,4 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(c)
 	fmt.Fprintf(w, "%s", dj)
-}
-
-// DecodeBase64URL decodes a Base64URL encoded string, adding padding if necessary
-func DecodeBase64URL(encoded string) ([]byte, error) {
-	// Add padding if necessary
-	padding := len(encoded) % 4
-	if padding > 0 {
-		encoded += string(make([]byte, 4-padding))
-		for i := 0; i < 4-padding; i++ {
-			encoded += "="
-		}
-	}
-
-	// Decode the Base64URL string
-	return base64.URLEncoding.DecodeString(encoded)
 }

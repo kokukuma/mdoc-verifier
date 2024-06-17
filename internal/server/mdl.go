@@ -91,8 +91,8 @@ const (
 	cborTypeCbor cborType = 0x24
 )
 
-func (i IssuerSigned) VerifiedElements() ([]IssuerSignedItem, error) {
-	items := []IssuerSignedItem{}
+func (i IssuerSigned) VerifiedElements() (map[NameSpace][]IssuerSignedItem, error) {
+	items := map[NameSpace][]IssuerSignedItem{}
 
 	mso, err := i.GetMobileSecurityObject()
 	if err != nil {
@@ -127,7 +127,7 @@ func (i IssuerSigned) VerifiedElements() ([]IssuerSignedItem, error) {
 				return nil, fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
 			}
 
-			items = append(items, item)
+			items[ns] = append(items[ns], item)
 		}
 	}
 

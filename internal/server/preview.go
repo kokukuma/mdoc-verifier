@@ -9,6 +9,10 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+var (
+	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
+)
+
 type IdentityRequestPreview struct {
 	Selector        Selector `json:"selector"`
 	Nonce           string   `json:"nonce"`
@@ -59,7 +63,7 @@ func ParsePreview(data, origin string) (*DeviceResponse, error) {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
-	decoded, err := DecodeBase64URL(msg.Token)
+	decoded, err := b64.DecodeString(msg.Token)
 	if err != nil {
 		return nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
 	}
@@ -86,17 +90,17 @@ func ParsePreview(data, origin string) (*DeviceResponse, error) {
 func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubKey, nonceStr, origin string) ([]byte, error) {
 	// Decode base64 encoded recipient private key to byte slice
 	//privKey, err := base64.StdEncoding.DecodeString(recipientPrivKey)
-	privKey, err := DecodeBase64URL(recipientPrivKey)
+	privKey, err := b64.DecodeString(recipientPrivKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
 	}
 
-	pubKey, err := DecodeBase64URL(recipientPubKey)
+	pubKey, err := b64.DecodeString(recipientPubKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
 	}
 
-	nonce, err := DecodeBase64URL(nonceStr)
+	nonce, err := b64.DecodeString(nonceStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode recipient private key: %v", err)
 	}
@@ -124,15 +128,6 @@ func DecryptAndroidHPKEV1(claims *AndroidHPKEV1, recipientPrivKey, recipientPubK
 	if err != nil {
 		return nil, fmt.Errorf("error setting up receiver context: %v", err)
 	}
-
-	// packageName := "com.android.identity.wallet"
-	// packageName := "com.android.mdl.appreader"
-	// aad, err := generateAndroidSessionTranscript(nonce, packageName, digest(pubKey))
-	// spew.Dump(aad)
-	// spew.Dump(claims.CipherText)
-	// spew.Dump(base64.URLEncoding.EncodeToString(aad))
-	// spew.Dump(base64.URLEncoding.EncodeToString(digest(claims.CipherText)))
-	// spew.Dump(base64.URLEncoding.EncodeToString(claims.EncryptionParameters.PKEM))
 
 	plainText, err := ctxR.Open(nil, claims.CipherText) // No associated data
 	if err != nil {

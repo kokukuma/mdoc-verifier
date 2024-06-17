@@ -21,7 +21,7 @@ func main() {
 	))
 
 	r.HandleFunc("/getIdentityRequest", srv.GetIdentityRequest).Methods("POST", "OPTIONS")
-	r.HandleFunc("/verifyResponse", srv.VerifyResponse).Methods("POST", "OPTIONS")
+	r.HandleFunc("/verifyIdentityResponse", srv.VerifyIdentityResponse).Methods("POST", "OPTIONS")
 
 	serverAddress := ":8080"
 	log.Println("starting fido server at", serverAddress)
