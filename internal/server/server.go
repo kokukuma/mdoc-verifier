@@ -158,7 +158,8 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	case "preview":
 		devResp, err = ep.ParsePreview(req.Data, req.Origin, privateKeyByte, publicKeyByte, nonceByte)
 	case "apple":
-		devResp, err = ep.ParseApple(req.Data, "merchantID", "temaID", privateKeyByte, publicKeyByte, nonceByte)
+		// TODO: req.Dataどういう形式かわからん
+		devResp, err = ep.ParseApple([]byte(req.Data), "merchantID", "temaID", privateKeyByte, publicKeyByte, nonceByte)
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)

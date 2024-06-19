@@ -9,6 +9,7 @@ import (
 	"hash"
 
 	"github.com/cisco/go-hpke"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
 )
@@ -76,6 +77,8 @@ func ParsePreview(data, origin string, privateKeyByte, publicKeyByte, nonceByte 
 	if err != nil {
 		return nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
 	}
+	spew.Dump("------------------------------- decoded")
+	spew.Dump(decoded)
 
 	var claims AndroidHPKEV1
 	if err := cbor.Unmarshal(decoded, &claims); err != nil {
