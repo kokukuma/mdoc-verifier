@@ -161,7 +161,7 @@ func parseCertificates(rawCerts [][]byte, roots *x509.CertPool) ([]*x509.Certifi
 	_, err := certs[0].Verify(opts)
 	if err != nil {
 		// TODO: I don't have real mDL: current issuser is self-signed on Device.
-		//return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+		// return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
 	}
 
 	return certs, nil

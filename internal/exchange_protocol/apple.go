@@ -1,9 +1,9 @@
 package exchange_protocol
 
 import (
+	"bytes"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
 )
@@ -41,7 +41,6 @@ func ParseApple(data []byte, merchantID, temaID string, privateKeyByte, publicKe
 	if err := cbor.Unmarshal(data, &claims); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
-	spew.Dump(claims)
 
 	// Decrypt the ciphertext
 	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, calcDigest(publicKeyByte, "SHA-256"))
@@ -49,17 +48,28 @@ func ParseApple(data []byte, merchantID, temaID string, privateKeyByte, publicKe
 		return nil, fmt.Errorf("failed to create aad: %v", err)
 	}
 
-	plaintext, err := DecryptHPKE(&claims, privateKeyByte, info)
-	if err != nil {
-		return nil, fmt.Errorf("Error decryptAndroidHPKEV1: %v", err)
+	if !bytes.Equal(calcDigest(info, "SHA-256"), claims.Params.InfoHash) {
+		return nil, fmt.Errorf("infoHash is not match: %v != %v", calcDigest(info, "SHA-256"), claims.Params.InfoHash)
 	}
 
-	var deviceResp mdoc.DeviceResponse
-	if err := cbor.Unmarshal(plaintext, &deviceResp); err != nil {
+	if !bytes.Equal(calcDigest(publicKeyByte, "SHA-256"), claims.Params.PkRHash) {
+		return nil, fmt.Errorf("PkRHash is not match")
+	}
+
+	plaintext, err := DecryptHPKE(&claims, privateKeyByte, info)
+	if err != nil {
+		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
+	}
+
+	topics := struct {
+		Identity mdoc.DeviceResponse `json:"identity"`
+	}{}
+
+	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
 
-	return &deviceResp, nil
+	return &topics.Identity, nil
 }
 
 const APPLE_HANDOVER_V1 = "AppleIdentityPresentment_1.0"
