@@ -13,6 +13,7 @@ async function getIdentityWithOpenid4VP() {
             alert("failed to get request" + err);
         });
     console.log(req)
+    console.log(req.data)
 
     const controller = new AbortController();
     const signal = controller.signal;
@@ -23,7 +24,7 @@ async function getIdentityWithOpenid4VP() {
         digital: {
           providers: [{
             protocol: "openid4vp",
-            request: req,
+            request: req.data,
           }],
         }
     });
@@ -32,6 +33,7 @@ async function getIdentityWithOpenid4VP() {
     const verifyResult = await $.post(
         'https://fido-kokukuma.jp.ngrok.io/verifyIdentityResponse',
         JSON.stringify({
+          session_id: req.session_id,
           protocol: response.protocol,
           data: response.data,
           origin: location.origin,
@@ -66,6 +68,7 @@ async function getIdentity() {
             alert("failed to get request" + err);
         });
     console.log(req)
+    console.log(req.data)
 
 
     const controller = new AbortController();
@@ -77,7 +80,7 @@ async function getIdentity() {
         digital: {
           providers: [{
             protocol: "preview",
-            request: req,
+            request: req.data,
           }],
         }
     });
@@ -86,6 +89,7 @@ async function getIdentity() {
     const verifyResult = await $.post(
         'https://fido-kokukuma.jp.ngrok.io/verifyIdentityResponse',
         JSON.stringify({
+          session_id: req.session_id,
           protocol: response.protocol,
           data: response.data,
           origin: location.origin,

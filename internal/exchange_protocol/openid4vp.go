@@ -17,6 +17,11 @@ type IdentityRequestOpenID4VP struct {
 	Nonce                  string                 `json:"nonce"`
 	PresentationDefinition PresentationDefinition `json:"presentation_definition"`
 }
+
+func (ir *IdentityRequestOpenID4VP) ApplyOption(option IdentityRequestOption) {
+	option(ir)
+}
+
 type PresentationDefinition struct {
 	ID               string            `json:"id"`
 	InputDescriptors []InputDescriptor `json:"input_descriptors"`
@@ -49,6 +54,55 @@ type MsoMdoc struct {
 type OpenID4VPData struct {
 	VPToken string `json:"vp_token"`
 }
+
+// func BeginIdentityRequestOpenID4VP(options ...IdentityRequestOpenID4VPOption) (*IdentityRequestOpenID4VP, *SessionData, error) {
+// 	nonce, err := CreateNonce()
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+//
+// 	curve := ecdh.P256()
+//
+// 	privKey, err := curve.GenerateKey(rand.Reader)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("failed to generateKey: %v", err)
+// 	}
+//
+// 	for _, option := range options {
+// 		option(idReq)
+// 	}
+//
+// 	return idReq, &SessionData{
+// 		Nonce:      nonce,
+// 		PrivateKey: privKey,
+// 	}, nil
+// }
+
+// type IdentityRequestOpenID4VPOption func(*IdentityRequestOpenID4VP)
+//
+// func WithFormat(format []string) IdentityRequestOpenID4VPOption {
+// 	return func(ir *IdentityRequestOpenID4VP) {
+// 		ir.Selector.Format = format
+// 	}
+// }
+//
+// func WithRetention(retention int) IdentityRequestOpenID4VPOption {
+// 	return func(ir *IdentityRequestOpenID4VP) {
+// 		ir.Selector.Retention = Retention{Days: retention}
+// 	}
+// }
+//
+// func WithDocType(docType string) IdentityRequestOpenID4VPOption {
+// 	return func(ir *IdentityRequestOpenID4VP) {
+// 		ir.Selector.DocType = docType
+// 	}
+// }
+//
+// func AddField(field Field) IdentityRequestOpenID4VPOption {
+// 	return func(ir *IdentityRequestOpenID4VP) {
+// 		ir.Selector.Fields = append(ir.Selector.Fields, field)
+// 	}
+// }
 
 func ParseOpenID4VP(data string) (*mdoc.DeviceResponse, error) {
 	var msg OpenID4VPData

@@ -2,6 +2,7 @@ package exchange_protocol
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
@@ -23,19 +24,11 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
-// TODO:
-// privateKeyByte, publicKeyByteは、[]byteじゃないほうがいいだろう...
-
-func ParseApple(data []byte, merchantID, temaID string, privateKeyByte, publicKeyByte, nonceByte []byte) (*mdoc.DeviceResponse, error) {
-	// var msg PreviewData
-	// if err := json.Unmarshal([]byte(data), &msg); err != nil {
-	// 	return nil, fmt.Errorf("failed to parse data as JSON")
-	// }
-	//
-	// decoded, err := b64.DecodeString(data)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
-	// }
+func ParseApple(
+	data []byte,
+	merchantID, temaID string,
+	privateKey *ecdh.PrivateKey,
+	nonceByte []byte) (*mdoc.DeviceResponse, error) {
 
 	var claims HPKEEnvelope
 	if err := cbor.Unmarshal(data, &claims); err != nil {
@@ -43,7 +36,7 @@ func ParseApple(data []byte, merchantID, temaID string, privateKeyByte, publicKe
 	}
 
 	// Decrypt the ciphertext
-	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, calcDigest(publicKeyByte, "SHA-256"))
+	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, calcDigest(privateKey.PublicKey().Bytes(), "SHA-256"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aad: %v", err)
 	}
@@ -52,11 +45,11 @@ func ParseApple(data []byte, merchantID, temaID string, privateKeyByte, publicKe
 		return nil, fmt.Errorf("infoHash is not match: %v != %v", calcDigest(info, "SHA-256"), claims.Params.InfoHash)
 	}
 
-	if !bytes.Equal(calcDigest(publicKeyByte, "SHA-256"), claims.Params.PkRHash) {
+	if !bytes.Equal(calcDigest(privateKey.PublicKey().Bytes(), "SHA-256"), claims.Params.PkRHash) {
 		return nil, fmt.Errorf("PkRHash is not match")
 	}
 
-	plaintext, err := DecryptHPKE(&claims, privateKeyByte, info)
+	plaintext, err := DecryptHPKE(&claims, privateKey.Bytes(), info)
 	if err != nil {
 		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}

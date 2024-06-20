@@ -13,7 +13,6 @@ import (
 	"hash"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/veraison/go-cose"
 )
@@ -109,11 +108,11 @@ func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)
 	}
+
 	rawX5Chain, ok := i.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
 	if !ok {
 		return fmt.Errorf("failed to get x5chain")
 	}
-	spew.Dump(rawX5Chain)
 
 	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
 	if !ok {
@@ -128,6 +127,7 @@ func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
 	if err != nil {
 		return fmt.Errorf("Failed to parseCertificates: %v", err)
 	}
+
 	documentSigningKey, ok := certificates[0].PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return fmt.Errorf("Failed to parseCertificates: %v", err)
@@ -160,8 +160,9 @@ func parseCertificates(rawCerts [][]byte, roots *x509.CertPool) ([]*x509.Certifi
 	// Perform the verification
 	_, err := certs[0].Verify(opts)
 	if err != nil {
-		// TODO: I don't have real mDL: current issuser is self-signed on Device.
-		// return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+		// TODO: If the vp is self-signed on Device, it will be failed.
+		// 自身の証明書を放り込んでおくべき...?
+		return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
 	}
 
 	return certs, nil

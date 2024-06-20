@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
@@ -19,55 +20,43 @@ var (
 	roots *x509.CertPool
 	b64   = base64.URLEncoding.WithPadding(base64.StdPadding)
 
-	privateKeyByte, publicKeyByte, nonceByte []byte
+	merchantID = "merchantID"
+	teamID     = "teamID"
 )
 
-const (
-	// Fixed for debugging
-	nonce      = "AS59uzWiXXXM5KkCBoO_q_syN1yXfrRABJ6Jtik3fas="
-	privateKey = "XF8RGrj4bNixklczV7inHRLxgq34Q5NJm7_kkqdt9oQ="
-	publicKey  = "BMyxKlbxQ1R0otFQ-w3jM-P3wMrUMS8jpB_eFwRLYW4QQUq6iur-BdUUVh3QhPrMGU3UZXbWTVnL-1gJ3A07OUw="
-)
-
-func init() {
-	var err error
-	roots, err = mdoc.GetRootCertificates("./internal/server/pems")
+func NewServer() *Server {
+	dir, err := filepath.Abs(filepath.Dir("."))
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
 	}
-
-	privateKeyByte, err = b64.DecodeString(privateKey)
+	roots, err = mdoc.GetRootCertificates(filepath.Join(dir, "internal", "server", "pems"))
 	if err != nil {
-		panic("failed to decode privateKey: " + err.Error())
+		panic("failed to load rootCerts: " + err.Error())
 	}
-
-	publicKeyByte, err = b64.DecodeString(publicKey)
-	if err != nil {
-		panic("failed to decode publicKey: " + err.Error())
+	return &Server{
+		sessions: NewSessions(),
 	}
-
-	nonceByte, err = b64.DecodeString(nonce)
-	if err != nil {
-		panic("failed to decode nonce: " + err.Error())
-	}
-}
-
-func NewServer() *Server {
-	return &Server{}
 }
 
 type Server struct {
-	mu sync.RWMutex
+	mu       sync.RWMutex
+	sessions *Sessions
 }
 
 type GetRequest struct {
 	Protocol string `json:"protocol"`
 }
 
+type GetResponse struct {
+	SessionID string      `json:"session_id"`
+	Data      interface{} `json:"data"`
+}
+
 type VerifyRequest struct {
-	Protocol string `json:"protocol"`
-	Data     string `json:"data"`
-	Origin   string `json:"origin"`
+	SessionID string `json:"session_id"`
+	Protocol  string `json:"protocol"`
+	Data      string `json:"data"`
+	Origin    string `json:"origin"`
 }
 
 type VerifyResponse struct {
@@ -89,54 +78,44 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	spew.Dump(req)
 
 	var idReq interface{}
+	var sessionData *ep.SessionData
+	var err error
 
 	switch req.Protocol {
 	case "preview":
-		idReq = &ep.IdentityRequestPreview{
-			Selector: ep.Selector{
-				Format:    []string{"mdoc"},
-				Retention: ep.Retention{Days: 90},
-				DocType:   "org.iso.18013.5.1.mDL",
-				Fields: []ep.Field{
-					ep.FamilyNameField,
-					ep.GivenNameField,
-					ep.DocumentNumberField,
-				},
-			},
-			Nonce:           nonce,
-			ReaderPublicKey: publicKey,
+		idReq, sessionData, err = ep.BeginIdentityRequest("preview",
+			ep.WithFormat([]string{"mdoc"}),
+			ep.WithDocType("org.iso.18013.5.1.mDL"),
+			ep.AddField(ep.FamilyNameField),
+			ep.AddField(ep.GivenNameField),
+			ep.AddField(ep.DocumentNumberField),
+		)
+		if err != nil {
+			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+			return
 		}
 	case "openid4vp":
-		idReq = &ep.IdentityRequestOpenID4VP{
-			ClientID:       "digital-credentials.dev",
-			ClientIDScheme: "web-origin",
-			ResponseType:   "vp_token",
-			Nonce:          nonce,
-			PresentationDefinition: ep.PresentationDefinition{
-				ID: "mDL-request-demo",
-				InputDescriptors: []ep.InputDescriptor{
-					{
-						ID: "org.iso.18013.5.1.mDL",
-						Format: ep.Format{
-							MsoMdoc: ep.MsoMdoc{
-								Alg: []string{"ES256"},
-							},
-						},
-						Constraints: ep.Constraints{
-							LimitDisclosure: "required",
-							Fields: ep.ConvPathField(
-								ep.FamilyNameField,
-								ep.GivenNameField,
-								ep.AgeOver21Field,
-							),
-						},
-					},
-				},
-			},
+		// TODO: optinoal function for openid4vp
+		idReq, sessionData, err = ep.BeginIdentityRequest("openid4vp")
+		if err != nil {
+			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+			return
 		}
 	}
 
-	jsonResponse(w, idReq, http.StatusOK)
+	id, err := s.sessions.SaveIdentitySession(sessionData)
+	if err != nil {
+		jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	spew.Dump(idReq)
+	spew.Dump(sessionData)
+
+	jsonResponse(w, GetResponse{
+		SessionID: id,
+		Data:      idReq,
+	}, http.StatusOK)
 
 	return
 }
@@ -147,19 +126,24 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		jsonResponse(w, fmt.Errorf("must supply a valid username i.e. foo@bar.com"), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(req)
+
+	session, err := s.sessions.GetIdentitySession(req.SessionID)
+	if err != nil {
+		jsonResponse(w, fmt.Errorf("failed to get session"), http.StatusBadRequest)
+		return
+	}
 
 	var devResp *mdoc.DeviceResponse
-	var err error
+
+	// TODO: exchange_protocolは、package分ける。
 
 	switch req.Protocol {
 	case "openid4vp":
 		devResp, err = ep.ParseOpenID4VP(req.Data)
 	case "preview":
-		devResp, err = ep.ParsePreview(req.Data, req.Origin, privateKeyByte, publicKeyByte, nonceByte)
+		devResp, err = ep.ParsePreview(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
-		// TODO: req.Dataどういう形式かわからん
-		devResp, err = ep.ParseApple([]byte(req.Data), "merchantID", "temaID", privateKeyByte, publicKeyByte, nonceByte)
+		devResp, err = ep.ParseApple([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)

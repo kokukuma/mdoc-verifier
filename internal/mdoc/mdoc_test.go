@@ -2,8 +2,8 @@ package mdoc
 
 import (
 	"encoding/hex"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -25,7 +25,7 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 		log.Fatal("1", err)
 	}
 
-	plaintext, err := ioutil.ReadFile(dataPath)
+	plaintext, err := os.ReadFile(dataPath)
 	if err != nil {
 		log.Fatal("2", err)
 	}
@@ -44,19 +44,16 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 	if err != nil {
 		log.Fatal("4", err)
 	}
+	spew.Dump(roots)
 
 	// Apple's data format
 	topics := struct {
 		Identity DeviceResponse `json:"identity"`
 	}{}
 
-	spew.Dump(plaintextByte)
-
 	if err := cbor.Unmarshal(plaintextByte, &topics); err != nil {
 		log.Fatal("5", err)
 	}
-
-	spew.Dump(topics)
 
 	t.Run("VerifyIssuerAuth", func(t *testing.T) {
 		for _, doc := range topics.Identity.Documents {

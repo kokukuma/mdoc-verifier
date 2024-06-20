@@ -6,6 +6,7 @@ require (
 	github.com/cisco/go-hpke v0.0.0-20230407100446-246075f83609
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fxamacker/cbor/v2 v2.6.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/veraison/go-cose v1.1.0

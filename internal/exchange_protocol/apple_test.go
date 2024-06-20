@@ -2,14 +2,13 @@ package exchange_protocol
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto/ecdh"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -46,13 +45,13 @@ func getPath(fileName string) (string, error) {
 	return filepath.Join(dir, "testdata", fileName), nil
 }
 
-func loadPrivateKey() (*ecdsa.PrivateKey, error) {
+func loadPrivateKey() (*ecdh.PrivateKey, error) {
 	dataPath, err := getPath("merchant_encryption.key")
 	if err != nil {
 		return nil, err
 	}
 
-	pemString, err := ioutil.ReadFile(dataPath)
+	pemString, err := os.ReadFile(dataPath)
 	if err != nil {
 		return nil, err
 	}
@@ -62,35 +61,17 @@ func loadPrivateKey() (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("failed to decode PEM block containing private key")
 	}
 
-	priv, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return priv, nil
-}
-
-func loadPublicKey() (*ecdsa.PublicKey, error) {
-	dataPath, err := getPath("merchant_encryption_public_key.pem")
+	ecdsaPriv, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
 
-	pemString, err := ioutil.ReadFile(dataPath)
+	curve := ecdh.P256()
+	ecdhPriv, err := curve.NewPrivateKey(ecdsaPriv.D.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error converting to ECDH private key: %v", err)
 	}
-
-	block, _ := pem.Decode([]byte(pemString))
-	if block == nil || block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("failed to decode PEM block containing public key")
-	}
-
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return pub.(*ecdsa.PublicKey), nil
+	return ecdhPriv, nil
 }
 
 func TestParseApple(t *testing.T) {
@@ -101,7 +82,7 @@ func TestParseApple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hexString, err := ioutil.ReadFile(dataPath)
+	hexString, err := os.ReadFile(dataPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,26 +92,13 @@ func TestParseApple(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	pubKey, err := loadPublicKey()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	publicKeyByte := elliptic.Marshal(
-		pubKey.Curve,
-		pubKey.X,
-		pubKey.Y,
-	)
-
 	privKey, err := loadPrivateKey()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	privKeyBytes := privKey.D.Bytes()
-
 	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, err := ParseApple(sampleHpkeEnvelope, merchantID, teamID, privKeyBytes, publicKeyByte, nonceByte)
+		deviceResp, err := ParseApple(sampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -145,16 +113,12 @@ func TestParseApple(t *testing.T) {
 func TestGenerateAppleSessionTranscript(t *testing.T) {
 	setup()
 
-	pubKey, err := loadPublicKey()
+	privKey, err := loadPrivateKey()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	publicKeyByte := elliptic.Marshal(
-		pubKey.Curve,
-		pubKey.X,
-		pubKey.Y,
-	)
+	publicKeyByte := privKey.PublicKey().Bytes()
 
 	t.Run("generateAppleSessionTranscript", func(t *testing.T) {
 		actual, err := generateAppleSessionTranscript(merchantID, teamID, nonceByte, calcDigest(publicKeyByte, "SHA-256"))
@@ -173,19 +137,15 @@ func TestGenerateAppleSessionTranscript(t *testing.T) {
 func TestPublickey(t *testing.T) {
 	setup()
 
-	pubKey, err := loadPublicKey()
+	privKey, err := loadPrivateKey()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	pubByte := elliptic.Marshal(
-		pubKey.Curve,
-		pubKey.X,
-		pubKey.Y,
-	)
+	publicKeyByte := privKey.PublicKey().Bytes()
 
 	pubByteSample, _ := hex.DecodeString("b2c00f06b2df645691174f1331ade35141f17e19b3021d07560b4a71fc61818c")
-	if !bytes.Equal(pubByteSample, calcDigest(pubByte, "SHA-256")) {
+	if !bytes.Equal(pubByteSample, calcDigest(publicKeyByte, "SHA-256")) {
 		t.Fatalf("info is unmatched")
 	}
 }
