@@ -103,7 +103,7 @@ func calcDigest(message []byte, alg string) []byte {
 	return hasher.Sum(nil)
 }
 
-func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
+func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool, allowSelfCert bool) error {
 	alg, err := i.IssuerAuth.Headers.Protected.Algorithm()
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)
@@ -123,7 +123,7 @@ func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
 		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
 	}
 
-	certificates, err := parseCertificates(rawX5ChainBytes, roots)
+	certificates, err := parseCertificates(rawX5ChainBytes, roots, allowSelfCert)
 	if err != nil {
 		return fmt.Errorf("Failed to parseCertificates: %v", err)
 	}
@@ -141,12 +141,15 @@ func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool) error {
 	return i.IssuerAuth.Verify(nil, verifier)
 }
 
-func parseCertificates(rawCerts [][]byte, roots *x509.CertPool) ([]*x509.Certificate, error) {
+func parseCertificates(rawCerts [][]byte, roots *x509.CertPool, allowSelfCert bool) ([]*x509.Certificate, error) {
 	var certs []*x509.Certificate
 	for _, certData := range rawCerts {
 		cert, err := x509.ParseCertificate(certData)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing certificate: %v", err)
+		}
+		if allowSelfCert {
+			roots.AddCert(cert)
 		}
 		certs = append(certs, cert)
 	}

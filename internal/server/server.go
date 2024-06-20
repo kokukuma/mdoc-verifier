@@ -151,15 +151,19 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 	spew.Dump(devResp)
 
+	spew.Dump(roots)
+
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		if err := doc.IssuerSigned.VerifyIssuerAuth(roots); err != nil {
+		if err := doc.IssuerSigned.VerifyIssuerAuth(roots, true); err != nil {
+			spew.Dump(err)
 			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
 			return
 		}
 
 		itemsmap, err := doc.IssuerSigned.VerifiedElements()
 		if err != nil {
+			spew.Dump(err)
 			fmt.Println("VerifiedElements:", err)
 			return
 		}
