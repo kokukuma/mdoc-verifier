@@ -7,12 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func GetRootCertificates(path string) (*x509.CertPool, error) {
-	spew.Dump(path)
 	pems, err := loadCertificatesFromDirectory(path)
 	if err != nil {
 		return nil, err

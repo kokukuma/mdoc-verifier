@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	ep "github.com/kokukuma/identity-credential-api-demo/internal/exchange_protocol"
+	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 )
 
 type Sessions struct {
@@ -13,7 +13,7 @@ type Sessions struct {
 	sessions map[string]*Session
 }
 
-func (s *Sessions) SaveIdentitySession(data *ep.SessionData) (string, error) {
+func (s *Sessions) SaveIdentitySession(data *protocol.SessionData) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -26,7 +26,7 @@ func (s *Sessions) SaveIdentitySession(data *ep.SessionData) (string, error) {
 	return id, nil
 }
 
-func (s *Sessions) GetIdentitySession(id string) (*ep.SessionData, error) {
+func (s *Sessions) GetIdentitySession(id string) (*protocol.SessionData, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -45,5 +45,5 @@ func NewSessions() *Sessions {
 
 type Session struct {
 	id   string
-	data *ep.SessionData
+	data *protocol.SessionData
 }

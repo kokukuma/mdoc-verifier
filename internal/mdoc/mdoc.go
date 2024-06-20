@@ -6,14 +6,12 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509"
 	"fmt"
-	"hash"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 	"github.com/veraison/go-cose"
 )
 
@@ -78,7 +76,7 @@ func (i IssuerSigned) VerifiedElements() (map[NameSpace][]IssuerSignedItem, erro
 				return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
 			}
 
-			if !bytes.Equal(digest, calcDigest(v, mso.DigestAlgorithm)) {
+			if !bytes.Equal(digest, protocol.Digest(v, mso.DigestAlgorithm)) {
 				return nil, fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
 			}
 
@@ -87,20 +85,6 @@ func (i IssuerSigned) VerifiedElements() (map[NameSpace][]IssuerSignedItem, erro
 	}
 
 	return items, nil
-}
-
-func calcDigest(message []byte, alg string) []byte {
-	var hasher hash.Hash
-	switch alg {
-	case "SHA-256":
-		hasher = sha256.New()
-	// case "SHA-384":
-	// 	hasher = sha384.New()
-	case "SHA-512":
-		hasher = sha512.New()
-	}
-	hasher.Write(message)
-	return hasher.Sum(nil)
 }
 
 func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool, allowSelfCert bool) error {

@@ -12,8 +12,11 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	ep "github.com/kokukuma/identity-credential-api-demo/internal/exchange_protocol"
+	"github.com/kokukuma/identity-credential-api-demo/internal/apple_hpke"
 	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/internal/openid4vp"
+	"github.com/kokukuma/identity-credential-api-demo/internal/preview_hpke"
+	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 )
 
 var (
@@ -78,17 +81,17 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	spew.Dump(req)
 
 	var idReq interface{}
-	var sessionData *ep.SessionData
+	var sessionData *protocol.SessionData
 	var err error
 
 	switch req.Protocol {
 	case "preview":
-		idReq, sessionData, err = ep.BeginIdentityRequest("preview",
-			ep.WithFormat([]string{"mdoc"}),
-			ep.WithDocType("org.iso.18013.5.1.mDL"),
-			ep.AddField(ep.FamilyNameField),
-			ep.AddField(ep.GivenNameField),
-			ep.AddField(ep.DocumentNumberField),
+		idReq, sessionData, err = preview_hpke.BeginIdentityRequest(
+			preview_hpke.WithFormat([]string{"mdoc"}),
+			preview_hpke.WithDocType("org.iso.18013.5.1.mDL"),
+			preview_hpke.AddField(mdoc.FamilyName),
+			preview_hpke.AddField(mdoc.GivenName),
+			preview_hpke.AddField(mdoc.DocumentNumber),
 		)
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
@@ -96,7 +99,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	case "openid4vp":
 		// TODO: optinoal function for openid4vp
-		idReq, sessionData, err = ep.BeginIdentityRequest("openid4vp")
+		idReq, sessionData, err = openid4vp.BeginIdentityRequest()
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 			return
@@ -139,19 +142,17 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = ep.ParseOpenID4VP(req.Data)
+		devResp, err = openid4vp.ParseOpenID4VP(req.Data)
 	case "preview":
-		devResp, err = ep.ParsePreview(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
+		devResp, err = preview_hpke.ParsePreview(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
-		devResp, err = ep.ParseApple([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
+		devResp, err = apple_hpke.ParseApple([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(devResp)
-
-	spew.Dump(roots)
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
