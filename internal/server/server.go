@@ -95,6 +95,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			preview_hpke.AddField(mdoc.DocumentNumber),
 			preview_hpke.AddField(mdoc.BirthDate),
 			preview_hpke.AddField(mdoc.IssueDate),
+			preview_hpke.AddField(mdoc.IssuingCountry),
 		)
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
@@ -102,7 +103,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	case "openid4vp":
 		// TODO: optinoal function for openid4vp
-		idReq, sessionData, err = openid4vp.BeginIdentityRequest()
+		idReq, sessionData, err = openid4vp.BeginIdentityRequest("digital-credentials.dev")
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 			return
@@ -144,7 +145,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(req.Data)
+		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(req.Data, req.Origin, "digital-credentials.dev", session.GetNonceByte())
 	case "preview":
 		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
@@ -158,7 +159,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		spew.Dump(doc)
+		// validity check
 		mso, err := doc.IssuerSigned.GetMobileSecurityObject(time.Now())
 		if err != nil {
 			spew.Dump(err)
@@ -166,20 +167,21 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		spew.Dump(mso)
-
+		// device verification
 		if err := mdoc.VerifyDeviceSigned(mso, doc, sessTrans); err != nil {
 			spew.Dump("1", err)
 			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
 			return
 		}
 
+		// issuer verification
 		if err := mdoc.VerifyIssuerAuth(doc.IssuerSigned.IssuerAuth, roots, true); err != nil {
 			spew.Dump("2", err)
 			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
 			return
 		}
 
+		// digest check
 		itemsmap, err := mdoc.VerifiedElements(doc.IssuerSigned.NameSpaces, mso)
 		if err != nil {
 			spew.Dump("3", err)

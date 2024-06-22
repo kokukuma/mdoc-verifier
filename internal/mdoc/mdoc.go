@@ -68,30 +68,6 @@ type IssuerSignedItem struct {
 	ElementValue      DataElementValue      `json:"elementValue"`
 }
 
-type DeviceSigned struct {
-	NameSpaces DeviceNameSpacesBytes `json:"nameSpaces"`
-	DeviceAuth DeviceAuth            `json:"deviceAuth"`
-}
-
-type DeviceNameSpacesBytes cbor.RawMessage
-
-type DeviceNameSpaces map[NameSpace]DeviceSignedItems
-
-type DeviceSignedItems map[DataElementIdentifier]DataElementValue
-
-type DeviceAuth struct {
-	DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
-	DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
-}
-
-type DocumentError map[DocType]ErrorCode
-
-type Errors map[NameSpace]ErrorItems
-
-type ErrorItems map[DataElementIdentifier]ErrorCode
-
-type ErrorCode int
-
 type MobileSecurityObject struct {
 	Version         string        `json:"version"`
 	DigestAlgorithm string        `json:"digestAlgorithm"`
@@ -140,3 +116,27 @@ type ValidityInfo struct {
 type DigestID uint
 
 type Digest []byte
+
+type DeviceSigned struct {
+	NameSpaces DeviceNameSpacesBytes `json:"nameSpaces"`
+	DeviceAuth DeviceAuth            `json:"deviceAuth"`
+}
+
+type DeviceNameSpacesBytes cbor.RawMessage
+
+type DeviceNameSpaces map[NameSpace]DeviceSignedItems
+
+type DeviceSignedItems map[DataElementIdentifier]DataElementValue
+
+type DeviceAuth struct {
+	DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
+	DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
+}
+
+type DocumentError map[DocType]ErrorCode
+
+type Errors map[NameSpace]ErrorItems
+
+type ErrorItems map[DataElementIdentifier]ErrorCode
+
+type ErrorCode int

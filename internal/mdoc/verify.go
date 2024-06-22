@@ -35,7 +35,7 @@ func VerifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscri
 		return fmt.Errorf("failed to get alg %w", err)
 	}
 
-	// TODO: ECDSAだけでいいのか？ algによって変えたほうが
+	// TODO: algによって変えたほうが.
 	pubKey, err := parseECDSA(mso.DeviceKeyInfo.DeviceKey)
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)

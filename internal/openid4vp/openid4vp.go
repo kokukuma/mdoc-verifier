@@ -7,6 +7,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 )
 
 var (
@@ -56,7 +57,10 @@ type OpenID4VPData struct {
 	VPToken string `json:"vp_token"`
 }
 
-func ParseDeviceResponse(data string) (*mdoc.DeviceResponse, []byte, error) {
+func ParseDeviceResponse(
+	data, origin, clientID string,
+	nonceByte []byte,
+) (*mdoc.DeviceResponse, []byte, error) {
 	var msg OpenID4VPData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse data as JSON")
@@ -72,5 +76,10 @@ func ParseDeviceResponse(data string) (*mdoc.DeviceResponse, []byte, error) {
 		return nil, nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
-	return &claims, nil, nil
+	sessTrans, err := generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
+	}
+
+	return &claims, sessTrans, nil
 }

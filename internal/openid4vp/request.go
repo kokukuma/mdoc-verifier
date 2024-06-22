@@ -9,7 +9,7 @@ import (
 	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 )
 
-func BeginIdentityRequest() (*IdentityRequestOpenID4VP, *protocol.SessionData, error) {
+func BeginIdentityRequest(clientID string) (*IdentityRequestOpenID4VP, *protocol.SessionData, error) {
 	nonce, err := protocol.CreateNonce()
 	if err != nil {
 		return nil, nil, err
@@ -23,7 +23,7 @@ func BeginIdentityRequest() (*IdentityRequestOpenID4VP, *protocol.SessionData, e
 	}
 
 	idReq := &IdentityRequestOpenID4VP{
-		ClientID:       "digital-credentials.dev",
+		ClientID:       clientID,
 		ClientIDScheme: "web-origin",
 		ResponseType:   "vp_token",
 		Nonce:          nonce.String(),
