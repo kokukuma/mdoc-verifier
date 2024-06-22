@@ -75,7 +75,7 @@ func loadPrivateKey() (*ecdh.PrivateKey, error) {
 	return ecdhPriv, nil
 }
 
-func TestParseApple(t *testing.T) {
+func TestParseDeviceResponse(t *testing.T) {
 	setup()
 
 	dataPath, err := getPath("hpke_envelope.cbor")
@@ -99,7 +99,7 @@ func TestParseApple(t *testing.T) {
 	}
 
 	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, err := ParseApple(sampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
+		deviceResp, _, err := ParseDeviceResponse(sampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

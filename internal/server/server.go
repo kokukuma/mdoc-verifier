@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/identity-credential-api-demo/internal/apple_hpke"
@@ -92,6 +93,8 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			preview_hpke.AddField(mdoc.FamilyName),
 			preview_hpke.AddField(mdoc.GivenName),
 			preview_hpke.AddField(mdoc.DocumentNumber),
+			preview_hpke.AddField(mdoc.BirthDate),
+			preview_hpke.AddField(mdoc.IssueDate),
 		)
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
@@ -137,16 +140,15 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var devResp *mdoc.DeviceResponse
-
-	// TODO: exchange_protocolは、package分ける。
+	var sessTrans []byte
 
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = openid4vp.ParseOpenID4VP(req.Data)
+		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(req.Data)
 	case "preview":
-		devResp, err = preview_hpke.ParsePreview(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
+		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
-		devResp, err = apple_hpke.ParseApple([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
+		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
 		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
@@ -156,15 +158,31 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		if err := doc.IssuerSigned.VerifyIssuerAuth(roots, true); err != nil {
+		spew.Dump(doc)
+		mso, err := doc.IssuerSigned.GetMobileSecurityObject(time.Now())
+		if err != nil {
 			spew.Dump(err)
+			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
+			return
+		}
+
+		spew.Dump(mso)
+
+		if err := mdoc.VerifyDeviceSigned(mso, doc, sessTrans); err != nil {
+			spew.Dump("1", err)
+			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
+			return
+		}
+
+		if err := mdoc.VerifyIssuerAuth(doc.IssuerSigned.IssuerAuth, roots, true); err != nil {
+			spew.Dump("2", err)
 			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		itemsmap, err := doc.IssuerSigned.VerifiedElements()
+		itemsmap, err := mdoc.VerifiedElements(doc.IssuerSigned.NameSpaces, mso)
 		if err != nil {
-			spew.Dump(err)
+			spew.Dump("3", err)
 			fmt.Println("VerifiedElements:", err)
 			return
 		}

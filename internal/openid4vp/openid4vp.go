@@ -56,21 +56,21 @@ type OpenID4VPData struct {
 	VPToken string `json:"vp_token"`
 }
 
-func ParseOpenID4VP(data string) (*mdoc.DeviceResponse, error) {
+func ParseDeviceResponse(data string) (*mdoc.DeviceResponse, []byte, error) {
 	var msg OpenID4VPData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
-		return nil, fmt.Errorf("failed to parse data as JSON")
+		return nil, nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
 	decoded, err := b64.DecodeString(msg.VPToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode base64")
+		return nil, nil, fmt.Errorf("failed to decode base64")
 	}
 
 	var claims mdoc.DeviceResponse
 	if err := cbor.Unmarshal(decoded, &claims); err != nil {
-		return nil, fmt.Errorf("failed to parse data as JSON")
+		return nil, nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
-	return &claims, nil
+	return &claims, nil, nil
 }

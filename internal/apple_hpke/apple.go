@@ -25,34 +25,34 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
-func ParseApple(
+func ParseDeviceResponse(
 	data []byte,
 	merchantID, temaID string,
 	privateKey *ecdh.PrivateKey,
-	nonceByte []byte) (*mdoc.DeviceResponse, error) {
+	nonceByte []byte) (*mdoc.DeviceResponse, []byte, error) {
 
 	var claims HPKEEnvelope
 	if err := cbor.Unmarshal(data, &claims); err != nil {
-		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+		return nil, nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
 
 	// Decrypt the ciphertext
 	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, protocol.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aad: %v", err)
+		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
 	}
 
 	if !bytes.Equal(protocol.Digest(info, "SHA-256"), claims.Params.InfoHash) {
-		return nil, fmt.Errorf("infoHash is not match: %v != %v", protocol.Digest(info, "SHA-256"), claims.Params.InfoHash)
+		return nil, nil, fmt.Errorf("infoHash is not match: %v != %v", protocol.Digest(info, "SHA-256"), claims.Params.InfoHash)
 	}
 
 	if !bytes.Equal(protocol.Digest(privateKey.PublicKey().Bytes(), "SHA-256"), claims.Params.PkRHash) {
-		return nil, fmt.Errorf("PkRHash is not match")
+		return nil, nil, fmt.Errorf("PkRHash is not match")
 	}
 
 	plaintext, err := protocol.DecryptHPKE(claims.Data, claims.Params.PkEM, info, privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
+		return nil, nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}
 
 	topics := struct {
@@ -60,10 +60,10 @@ func ParseApple(
 	}{}
 
 	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
-		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+		return nil, nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
 	}
 
-	return &topics.Identity, nil
+	return &topics.Identity, info, nil
 }
 
 const APPLE_HANDOVER_V1 = "AppleIdentityPresentment_1.0"

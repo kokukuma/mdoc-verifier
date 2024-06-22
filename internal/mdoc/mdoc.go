@@ -3,15 +3,10 @@ package mdoc
 import (
 	// "crypto"
 
-	"bytes"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/x509"
 	"fmt"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 	"github.com/veraison/go-cose"
 )
 
@@ -44,118 +39,7 @@ type IssuerSigned struct {
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
-func (i IssuerSigned) VerifiedElements() (map[NameSpace][]IssuerSignedItem, error) {
-	items := map[NameSpace][]IssuerSignedItem{}
-
-	mso, err := i.GetMobileSecurityObject()
-	if err != nil {
-		return nil, fmt.Errorf("GetMobileSecurityObject: %v", err)
-	}
-
-	for ns, vals := range i.NameSpaces {
-		digestIDs, ok := mso.ValueDigests[ns]
-		if !ok {
-			return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
-		}
-
-		for _, val := range vals {
-			v, err := cbor.Marshal(cbor.Tag{
-				Number:  24,
-				Content: val,
-			})
-			if err != nil {
-				return nil, err
-			}
-
-			var item IssuerSignedItem
-			if err := cbor.Unmarshal(val, &item); err != nil {
-				return nil, err
-			}
-			digest, ok := digestIDs[DigestID(item.DigestID)]
-			if !ok {
-				return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
-			}
-
-			if !bytes.Equal(digest, protocol.Digest(v, mso.DigestAlgorithm)) {
-				return nil, fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
-			}
-
-			items[ns] = append(items[ns], item)
-		}
-	}
-
-	return items, nil
-}
-
-func (i IssuerSigned) VerifyIssuerAuth(roots *x509.CertPool, allowSelfCert bool) error {
-	alg, err := i.IssuerAuth.Headers.Protected.Algorithm()
-	if err != nil {
-		return fmt.Errorf("failed to get alg %w", err)
-	}
-
-	rawX5Chain, ok := i.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
-	if !ok {
-		return fmt.Errorf("failed to get x5chain")
-	}
-
-	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
-	if !ok {
-		rawX5ChainByte, ok := rawX5Chain.([]byte)
-		if !ok {
-			return fmt.Errorf("failed to get x5chain")
-		}
-		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
-	}
-
-	certificates, err := parseCertificates(rawX5ChainBytes, roots, allowSelfCert)
-	if err != nil {
-		return fmt.Errorf("Failed to parseCertificates: %v", err)
-	}
-
-	documentSigningKey, ok := certificates[0].PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("Failed to parseCertificates: %v", err)
-	}
-
-	verifier, err := cose.NewVerifier(alg, documentSigningKey)
-	if err != nil {
-		return fmt.Errorf("Failed to create NewVerifier: %v", err)
-	}
-
-	return i.IssuerAuth.Verify(nil, verifier)
-}
-
-func parseCertificates(rawCerts [][]byte, roots *x509.CertPool, allowSelfCert bool) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-	for _, certData := range rawCerts {
-		cert, err := x509.ParseCertificate(certData)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing certificate: %v", err)
-		}
-		if allowSelfCert {
-			roots.AddCert(cert)
-		}
-		certs = append(certs, cert)
-	}
-
-	// veirfy
-	opts := x509.VerifyOptions{
-		Roots:     roots,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-	}
-
-	// Perform the verification
-	_, err := certs[0].Verify(opts)
-	if err != nil {
-		// TODO: If the vp is self-signed on Device, it will be failed.
-		// 自身の証明書を放り込んでおくべき...?
-		return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
-	}
-
-	return certs, nil
-}
-
-func (i IssuerSigned) GetMobileSecurityObject() (*MobileSecurityObject, error) {
+func (i IssuerSigned) GetMobileSecurityObject(now time.Time) (*MobileSecurityObject, error) {
 	var topLevelData interface{}
 	err := cbor.Unmarshal(i.IssuerAuth.Payload, &topLevelData)
 	if err != nil {
@@ -166,12 +50,16 @@ func (i IssuerSigned) GetMobileSecurityObject() (*MobileSecurityObject, error) {
 	if err := cbor.Unmarshal(topLevelData.(cbor.Tag).Content.([]byte), &mso); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %w", err)
 	}
+
+	if now.Before(mso.ValidityInfo.ValidFrom) || now.After(mso.ValidityInfo.ValidUntil) {
+		return nil, fmt.Errorf("Failed to check validityInfo: %v", mso.ValidityInfo)
+	}
 	return &mso, nil
 }
 
 type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes
 
-type IssuerSignedItemBytes []byte
+type IssuerSignedItemBytes cbor.RawMessage
 
 type IssuerSignedItem struct {
 	DigestID          uint                  `json:"digestID"`
@@ -185,7 +73,7 @@ type DeviceSigned struct {
 	DeviceAuth DeviceAuth            `json:"deviceAuth"`
 }
 
-type DeviceNameSpacesBytes []byte
+type DeviceNameSpacesBytes cbor.RawMessage
 
 type DeviceNameSpaces map[NameSpace]DeviceSignedItems
 
@@ -219,7 +107,17 @@ type DeviceKeyInfo struct {
 	KeyInfo           KeyInfo           `json:"keyInfo,omitempty"`
 }
 
-type COSEKey crypto.PublicKey
+type COSEKey struct {
+	Kty       int             `cbor:"1,keyasint,omitempty"`
+	Kid       []byte          `cbor:"2,keyasint,omitempty"`
+	Alg       int             `cbor:"3,keyasint,omitempty"`
+	KeyOpts   int             `cbor:"4,keyasint,omitempty"`
+	IV        []byte          `cbor:"5,keyasint,omitempty"`
+	CrvOrNOrK cbor.RawMessage `cbor:"-1,keyasint,omitempty"` // K for symmetric keys, Crv for elliptic curve keys, N for RSA modulus
+	XOrE      cbor.RawMessage `cbor:"-2,keyasint,omitempty"` // X for curve x-coordinate, E for RSA public exponent
+	Y         cbor.RawMessage `cbor:"-3,keyasint,omitempty"` // Y for curve y-cooridate
+	D         []byte          `cbor:"-4,keyasint,omitempty"`
+}
 
 type KeyAuthorizations struct {
 	NameSpaces   []string            `json:"nameSpaces,omitempty"`
