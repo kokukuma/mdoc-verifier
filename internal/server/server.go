@@ -161,25 +161,25 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
+		// issuer data authentication
+		if err := mdoc.VerifyIssuerAuth(doc.IssuerSigned.IssuerAuth, roots, true); err != nil {
+			spew.Dump("2", err)
+			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
+			return
+		}
+
 		// validity check
-		mso, err := doc.IssuerSigned.GetMobileSecurityObject(time.Now())
+		mso, err := mdoc.GetMobileSecurityObject(doc.IssuerSigned.IssuerAuth.Payload, time.Now())
 		if err != nil {
 			spew.Dump(err)
 			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
 			return
 		}
 
-		// device verification
+		// mdoc authentication
 		if err := mdoc.VerifyDeviceSigned(mso, doc, sessTrans); err != nil {
 			spew.Dump("1", err)
 			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		// issuer verification
-		if err := mdoc.VerifyIssuerAuth(doc.IssuerSigned.IssuerAuth, roots, true); err != nil {
-			spew.Dump("2", err)
-			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
 			return
 		}
 

@@ -76,7 +76,7 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 
 	t.Run("VerifyIssuerAuth", func(t *testing.T) {
 		for _, doc := range topics.Identity.Documents {
-			mso, err := doc.IssuerSigned.GetMobileSecurityObject(parsedTime)
+			mso, err := GetMobileSecurityObject(doc.IssuerSigned.IssuerAuth.Payload, parsedTime)
 			if err != nil {
 				t.Fatalf("failed to get mso %v", err)
 			}

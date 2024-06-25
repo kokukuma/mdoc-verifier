@@ -39,9 +39,9 @@ type IssuerSigned struct {
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
-func (i IssuerSigned) GetMobileSecurityObject(now time.Time) (*MobileSecurityObject, error) {
+func GetMobileSecurityObject(payload []byte, now time.Time) (*MobileSecurityObject, error) {
 	var topLevelData interface{}
-	err := cbor.Unmarshal(i.IssuerAuth.Payload, &topLevelData)
+	err := cbor.Unmarshal(payload, &topLevelData)
 	if err != nil {
 		return nil, fmt.Errorf("Error unmarshalling top level CBOR: %w", err)
 	}
