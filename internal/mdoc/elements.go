@@ -1,5 +1,7 @@
 package mdoc
 
+import "fmt"
+
 // ISO_IEC_18013-5_2021(en).pdf
 
 type Element struct {
@@ -108,11 +110,6 @@ var (
 		Name:      "portrait_capture_date",
 	}
 
-	AgeOver21 = Element{
-		Namespace: "org.iso.18013.5.1",
-		Name:      "age_over_21",
-	}
-
 	AgeInYears = Element{
 		Namespace: "org.iso.18013.5.1",
 		Name:      "age_in_years",
@@ -173,3 +170,13 @@ var (
 		Name:      "signature_usual_mark",
 	}
 )
+
+func AgeOver(age int) (Element, error) {
+	if age < 0 && age > 99 {
+		return Element{}, fmt.Errorf("unsupported range of age: %v", age)
+	}
+	return Element{
+		Namespace: "org.iso.18013.5.1",
+		Name:      fmt.Sprintf("age_over_%d", age),
+	}, nil
+}

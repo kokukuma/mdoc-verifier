@@ -42,7 +42,6 @@ func BeginIdentityRequest(clientID string) (*IdentityRequestOpenID4VP, *protocol
 						Fields: convPathField(
 							mdoc.FamilyName,
 							mdoc.GivenName,
-							mdoc.AgeOver21,
 						),
 					},
 				},
