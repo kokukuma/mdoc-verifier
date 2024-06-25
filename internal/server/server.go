@@ -87,7 +87,8 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Protocol {
 	case "preview":
-		ageOver28, _ := mdoc.AgeOver(28)
+		ageOver21, _ := mdoc.AgeOver(21) // only 21 works now...why..
+		spew.Dump(ageOver21)
 		idReq, sessionData, err = preview_hpke.BeginIdentityRequest(
 			preview_hpke.WithFormat([]string{"mdoc"}),
 			preview_hpke.WithDocType("org.iso.18013.5.1.mDL"),
@@ -97,7 +98,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			preview_hpke.AddField(mdoc.BirthDate),
 			preview_hpke.AddField(mdoc.IssueDate),
 			preview_hpke.AddField(mdoc.IssuingCountry),
-			preview_hpke.AddField(ageOver28),
+			preview_hpke.AddField(ageOver21),
 		)
 		if err != nil {
 			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
