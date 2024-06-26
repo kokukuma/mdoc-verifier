@@ -1,7 +1,7 @@
 async function getIdentityWithOpenid4VP() {
   try {
     const req = await $.post(
-        'https://fido-kokukuma.jp.ngrok.io/getIdentityRequest',
+        "https://{{.ServerDomain}}/getIdentityRequest",
         JSON.stringify({
           protocol: "openid4vp",
         }),
@@ -31,7 +31,7 @@ async function getIdentityWithOpenid4VP() {
     console.log(response)
 
     const verifyResult = await $.post(
-        'https://fido-kokukuma.jp.ngrok.io/verifyIdentityResponse',
+        "https://{{.ServerDomain}}/verifyIdentityResponse",
         JSON.stringify({
           session_id: req.session_id,
           protocol: response.protocol,
@@ -56,7 +56,7 @@ async function getIdentityWithOpenid4VP() {
 async function getIdentity() {
   try {
     const req = await $.post(
-        'https://fido-kokukuma.jp.ngrok.io/getIdentityRequest',
+        "https://{{.ServerDomain}}/getIdentityRequest",
         JSON.stringify({
           protocol: "preview",
         }),
@@ -87,7 +87,7 @@ async function getIdentity() {
     console.log(response)
 
     const verifyResult = await $.post(
-        'https://fido-kokukuma.jp.ngrok.io/verifyIdentityResponse',
+        "https://{{.ServerDomain}}/verifyIdentityResponse",
         JSON.stringify({
           session_id: req.session_id,
           protocol: response.protocol,
