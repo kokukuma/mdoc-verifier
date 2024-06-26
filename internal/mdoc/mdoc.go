@@ -3,10 +3,16 @@ package mdoc
 import (
 	// "crypto"
 
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/x509"
 	"fmt"
+	"log"
+	"math/big"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 	"github.com/veraison/go-cose"
 )
 
@@ -39,9 +45,62 @@ type IssuerSigned struct {
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
-func GetMobileSecurityObject(payload []byte, now time.Time) (*MobileSecurityObject, error) {
+func (i *IssuerSigned) Alg() (cose.Algorithm, error) {
+	return i.IssuerAuth.Headers.Protected.Algorithm()
+}
+
+func (i *IssuerSigned) DocumentSigningKey() (*ecdsa.PublicKey, error) {
+	certificate, err := i.Certificate()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get X5CertificateChain: %v", err)
+	}
+
+	documentSigningKey, ok := certificate.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("Failed to parseCertificates: %v", err)
+	}
+	return documentSigningKey, nil
+}
+
+func (i *IssuerSigned) Certificate() (*x509.Certificate, error) {
+	certificates, err := i.X5CertificateChain()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get X5CertificateChain: %v", err)
+	}
+	return certificates[0], nil
+}
+
+func (i *IssuerSigned) X5CertificateChain() ([]*x509.Certificate, error) {
+
+	rawX5Chain, ok := i.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
+	if !ok {
+		return nil, fmt.Errorf("failed to get x5chain")
+	}
+
+	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
+	if !ok {
+		rawX5ChainByte, ok := rawX5Chain.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("failed to get x5chain")
+		}
+		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
+	}
+
+	var certs []*x509.Certificate
+	for _, certData := range rawX5ChainBytes {
+		cert, err := x509.ParseCertificate(certData)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing certificate: %v", err)
+		}
+		certs = append(certs, cert)
+	}
+
+	return certs, nil
+}
+
+func (i *IssuerSigned) MobileSecurityObject() (*MobileSecurityObject, error) {
 	var topLevelData interface{}
-	err := cbor.Unmarshal(payload, &topLevelData)
+	err := cbor.Unmarshal(i.IssuerAuth.Payload, &topLevelData)
 	if err != nil {
 		return nil, fmt.Errorf("Error unmarshalling top level CBOR: %w", err)
 	}
@@ -50,16 +109,46 @@ func GetMobileSecurityObject(payload []byte, now time.Time) (*MobileSecurityObje
 	if err := cbor.Unmarshal(topLevelData.(cbor.Tag).Content.([]byte), &mso); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor string: %w", err)
 	}
-
-	if now.Before(mso.ValidityInfo.ValidFrom) || now.After(mso.ValidityInfo.ValidUntil) {
-		return nil, fmt.Errorf("Failed to check validityInfo: %v", mso.ValidityInfo)
-	}
 	return &mso, nil
+}
+
+func (i *IssuerSigned) IssuerSignedItems() (map[NameSpace][]IssuerSignedItem, error) {
+	items := map[NameSpace][]IssuerSignedItem{}
+
+	for ns, itemBytes := range i.NameSpaces {
+		for _, itemByte := range itemBytes {
+			item, err := itemByte.IssuerSignedItem()
+			if err != nil {
+				return nil, err
+			}
+			items[ns] = append(items[ns], item)
+		}
+	}
+	return items, nil
 }
 
 type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes
 
 type IssuerSignedItemBytes cbor.RawMessage
+
+func (i IssuerSignedItemBytes) IssuerSignedItem() (IssuerSignedItem, error) {
+	var item IssuerSignedItem
+	if err := cbor.Unmarshal(i, &item); err != nil {
+		return IssuerSignedItem{}, err
+	}
+	return item, nil
+}
+
+func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
+	v, err := cbor.Marshal(cbor.Tag{
+		Number:  24,
+		Content: i,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return protocol.Digest(v, alg), nil
+}
 
 type IssuerSignedItem struct {
 	DigestID          uint                  `json:"digestID"`
@@ -73,8 +162,13 @@ type MobileSecurityObject struct {
 	DigestAlgorithm string        `json:"digestAlgorithm"`
 	ValueDigests    ValueDigests  `json:"valueDigests"`
 	DeviceKeyInfo   DeviceKeyInfo `json:"deviceKeyInfo"`
-	DocType         string        `json:"docType"`
+	DocType         DocType       `json:"docType"`
 	ValidityInfo    ValidityInfo  `json:"validityInfo"`
+}
+
+func (m *MobileSecurityObject) DeviceKey() (*ecdsa.PublicKey, error) {
+	// TODO: algによって変えたほうが.
+	return parseECDSA(m.DeviceKeyInfo.DeviceKey)
 }
 
 type DeviceKeyInfo struct {
@@ -122,6 +216,28 @@ type DeviceSigned struct {
 	DeviceAuth DeviceAuth            `json:"deviceAuth"`
 }
 
+func (d *DeviceSigned) Alg() (cose.Algorithm, error) {
+	return d.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
+}
+
+func (d *DeviceSigned) DeviceAuthenticationBytes(docType DocType, sessionTranscript []byte) ([]byte, error) {
+	deviceAuthentication := []interface{}{
+		"DeviceAuthentication",
+		cbor.RawMessage(sessionTranscript),
+		docType,
+		cbor.Tag{Number: 24, Content: d.NameSpaces},
+	}
+	da, err := cbor.Marshal(deviceAuthentication)
+	if err != nil {
+		return nil, fmt.Errorf("error encoding transcript: %v", err)
+	}
+	deviceAuthenticationByte, err := cbor.Marshal(cbor.Tag{Number: 24, Content: da})
+	if err != nil {
+		return nil, fmt.Errorf("failed to Marshal cbor %w", err)
+	}
+	return deviceAuthenticationByte, nil
+}
+
 type DeviceNameSpacesBytes cbor.RawMessage
 
 type DeviceNameSpaces map[NameSpace]DeviceSignedItems
@@ -140,3 +256,41 @@ type Errors map[NameSpace]ErrorItems
 type ErrorItems map[DataElementIdentifier]ErrorCode
 
 type ErrorCode int
+
+func parseECDSA(coseKey COSEKey) (*ecdsa.PublicKey, error) {
+	// Extract the curve
+	var crv int
+	if err := cbor.Unmarshal(coseKey.CrvOrNOrK, &crv); err != nil {
+		return nil, err
+	}
+
+	// Extract the X coordinate
+	var xBytes []byte
+	if err := cbor.Unmarshal(coseKey.XOrE, &xBytes); err != nil {
+		return nil, err
+	}
+
+	// Extract the Y coordinate
+	var yBytes []byte
+	if err := cbor.Unmarshal(coseKey.Y, &yBytes); err != nil {
+		return nil, err
+	}
+
+	// Convert to ecdsa.PublicKey
+	var pubKey ecdsa.PublicKey
+	switch crv {
+	case 1: // Assuming 1 means P-256 curve
+		pubKey.Curve = elliptic.P256()
+	case 2: // Assuming 2 means P-384 curve
+		pubKey.Curve = elliptic.P384()
+	case 3: // Assuming 3 means P-521 curve
+		pubKey.Curve = elliptic.P521()
+	default:
+		log.Fatalf("Unsupported curve: %v", crv)
+	}
+
+	pubKey.X = new(big.Int).SetBytes(xBytes)
+	pubKey.Y = new(big.Int).SetBytes(yBytes)
+
+	return &pubKey, nil
+}

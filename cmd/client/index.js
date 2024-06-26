@@ -10,7 +10,7 @@ async function getIdentityWithOpenid4VP() {
         },
         'json').fail(function(err) {
             console.log(err);
-            alert("failed to get request" + err);
+            alert("failed to get request: "+ JSON.stringify(err));
         });
     console.log(req)
     console.log(req.data)
@@ -43,7 +43,7 @@ async function getIdentityWithOpenid4VP() {
         },
         'json').fail(function(err) {
             console.log(err);
-            alert("failed to verify response: "+ err);
+            alert("failed to verify response: "+ JSON.stringify(err.responseJSON.Error));
         });
     console.log(verifyResult)
 
@@ -65,7 +65,7 @@ async function getIdentity() {
         },
         'json').fail(function(err) {
             console.log(err);
-            alert("failed to get request" + err);
+            alert("failed to get request: "+ JSON.stringify(err));
         });
     console.log(req)
     console.log(req.data)
@@ -99,7 +99,7 @@ async function getIdentity() {
         },
         'json').fail(function(err) {
             console.log(err);
-            alert("failed to verify response: "+ err);
+            alert("failed to verify response: "+ JSON.stringify(err.responseJSON.Error));
         });
     console.log(verifyResult)
 

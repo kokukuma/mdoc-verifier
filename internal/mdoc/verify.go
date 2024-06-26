@@ -2,41 +2,85 @@ package mdoc
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/x509"
 	"fmt"
-	"log"
-	"math/big"
+	"time"
 
-	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
 	"github.com/veraison/go-cose"
 )
 
-func VerifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscript []byte) error {
-	deviceAuthentication := []interface{}{
-		"DeviceAuthentication",
-		cbor.RawMessage(sessionTranscript),
-		doc.DocType,
-		cbor.Tag{Number: 24, Content: doc.DeviceSigned.NameSpaces},
-	}
-	da, err := cbor.Marshal(deviceAuthentication)
+var (
+	Now = time.Now()
+)
+
+// ISO/IEC 18013-5
+func Verify(doc Document, sessTrans []byte, roots *x509.CertPool, allowSelfCert bool) error {
+
+	mso, err := doc.IssuerSigned.MobileSecurityObject()
 	if err != nil {
-		return fmt.Errorf("error encoding transcript: %v", err)
+		return fmt.Errorf("failed to get MobileSecurityObject")
 	}
-	deviceAuthenticationByte, err := cbor.Marshal(cbor.Tag{Number: 24, Content: da})
+
+	// 9.1.3 mdoc authentication
+	if err := VerifyDeviceSigned(mso, doc, sessTrans); err != nil {
+		return fmt.Errorf("failed to VerifyDeviceSigned: %v", err)
+	}
+
+	// 9.3.1 Inspection procedure for issuer data authentication
+	// 1. Validate the certificate included in the MSO header according to 9.3.3.
+	if err := VerifyCertificate(doc.IssuerSigned, roots, allowSelfCert); err != nil {
+		return fmt.Errorf("failed to VerifyCertificate: %v", err)
+	}
+
+	// 2. Verify the digital signature of the IssuerAuth structure (see 9.1.2.4) using the working_public_
+	//    key, working_public_key_parameters, and working_public_key_algorithm from the certificate
+	//    validation procedure of step 1.
+	if err := VerifyIssuerAuth(doc.IssuerSigned); err != nil {
+		return fmt.Errorf("failed to VerifyIssuerAuth: %v", err)
+	}
+
+	// 3. Calculate the digest value for every IssuerSignedItem returned in the DeviceResponse structure
+	//    according to 9.1.2.5 and verify that these calculated digests equal the corresponding digest values
+	//    in the MSO.
+	if err := VerifyDigests(doc.IssuerSigned, mso); err != nil {
+		return fmt.Errorf("failed to VerifyDigests: %v", err)
+	}
+
+	// 4. Verify that the DocType in the MSO matches the relevant DocType in the Documents structure.
+	if doc.DocType != mso.DocType {
+		return fmt.Errorf("docType unmatche ")
+	}
+
+	// 5. Validate the elements in the ValidityInfo structure, i.e. verify that:
+	// — the 'signed' date is within the validity period of the certificate in the MSO header,
+	// — the current timestamp shall be equal or later than the ‘validFrom’ element,
+	// — the 'validUntil' element shall be equal or later than the current timestamp.
+	certificate, err := doc.IssuerSigned.Certificate()
+	if err != nil {
+		return fmt.Errorf("failed to get certificate: %v", err)
+	}
+	if mso.ValidityInfo.Signed.Before(certificate.NotBefore) || mso.ValidityInfo.Signed.After(certificate.NotAfter) {
+		return fmt.Errorf("failed to veirfy signed date: %v", mso.ValidityInfo)
+	}
+	if Now.Before(mso.ValidityInfo.ValidFrom) || Now.After(mso.ValidityInfo.ValidUntil) {
+		return fmt.Errorf("failed to check validity: %v", mso.ValidityInfo)
+	}
+
+	return nil
+}
+
+func VerifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscript []byte) error {
+	deviceAuthenticationByte, err := doc.DeviceSigned.DeviceAuthenticationBytes(doc.DocType, sessionTranscript)
 	if err != nil {
 		return fmt.Errorf("failed to Marshal cbor %w", err)
 	}
 
-	alg, err := doc.DeviceSigned.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
+	alg, err := doc.DeviceSigned.Alg()
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)
 	}
 
-	// TODO: algによって変えたほうが.
-	pubKey, err := parseECDSA(mso.DeviceKeyInfo.DeviceKey)
+	pubKey, err := mso.DeviceKey()
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)
 	}
@@ -51,109 +95,46 @@ func VerifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscri
 	return doc.DeviceSigned.DeviceAuth.DeviceSignature.Verify(nil, verifier)
 }
 
-func parseECDSA(coseKey COSEKey) (*ecdsa.PublicKey, error) {
-	// Extract the curve
-	var crv int
-	if err := cbor.Unmarshal(coseKey.CrvOrNOrK, &crv); err != nil {
-		return nil, err
-	}
-
-	// Extract the X coordinate
-	var xBytes []byte
-	if err := cbor.Unmarshal(coseKey.XOrE, &xBytes); err != nil {
-		return nil, err
-	}
-
-	// Extract the Y coordinate
-	var yBytes []byte
-	if err := cbor.Unmarshal(coseKey.Y, &yBytes); err != nil {
-		return nil, err
-	}
-
-	// Convert to ecdsa.PublicKey
-	var pubKey ecdsa.PublicKey
-	switch crv {
-	case 1: // Assuming 1 means P-256 curve
-		pubKey.Curve = elliptic.P256()
-	case 2: // Assuming 2 means P-384 curve
-		pubKey.Curve = elliptic.P384()
-	case 3: // Assuming 3 means P-521 curve
-		pubKey.Curve = elliptic.P521()
-	default:
-		log.Fatalf("Unsupported curve: %v", crv)
-	}
-
-	pubKey.X = new(big.Int).SetBytes(xBytes)
-	pubKey.Y = new(big.Int).SetBytes(yBytes)
-
-	return &pubKey, nil
-}
-
-func VerifiedElements(namespaces IssuerNameSpaces, mso *MobileSecurityObject) (map[NameSpace][]IssuerSignedItem, error) {
-	items := map[NameSpace][]IssuerSignedItem{}
-
-	for ns, vals := range namespaces {
+func VerifyDigests(issuerSigned IssuerSigned, mso *MobileSecurityObject) error {
+	for ns, itembytes := range issuerSigned.NameSpaces {
 		digestIDs, ok := mso.ValueDigests[ns]
 		if !ok {
-			return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
+			return fmt.Errorf("failed to get ValueDigests of %s", ns)
 		}
 
-		for _, val := range vals {
-			v, err := cbor.Marshal(cbor.Tag{
-				Number:  24,
-				Content: val,
-			})
+		for _, itemByte := range itembytes {
+			item, err := itemByte.IssuerSignedItem()
 			if err != nil {
-				return nil, err
+				return fmt.Errorf("failed to get IssuerSignedItem: %v", err)
 			}
 
-			var item IssuerSignedItem
-			if err := cbor.Unmarshal(val, &item); err != nil {
-				return nil, err
-			}
 			digest, ok := digestIDs[DigestID(item.DigestID)]
 			if !ok {
-				return nil, fmt.Errorf("failed to get ValueDigests of %s", ns)
+				return fmt.Errorf("failed to get ValueDigests of %s", ns)
 			}
 
-			if !bytes.Equal(digest, protocol.Digest(v, mso.DigestAlgorithm)) {
-				return nil, fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
+			calc, err := itemByte.Digest(mso.DigestAlgorithm)
+			if err != nil {
+				return err
 			}
 
-			items[ns] = append(items[ns], item)
+			if !bytes.Equal(digest, calc) {
+				return fmt.Errorf("digest unmatched digestID:%v", item.DigestID)
+			}
 		}
-	}
 
-	return items, nil
+	}
+	return nil
 }
 
-func VerifyIssuerAuth(issuerAuth cose.UntaggedSign1Message, roots *x509.CertPool, allowSelfCert bool) error {
-	alg, err := issuerAuth.Headers.Protected.Algorithm()
+func VerifyIssuerAuth(issuerSigned IssuerSigned) error {
+	alg, err := issuerSigned.Alg()
 	if err != nil {
 		return fmt.Errorf("failed to get alg %w", err)
 	}
 
-	rawX5Chain, ok := issuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
-	if !ok {
-		return fmt.Errorf("failed to get x5chain")
-	}
-
-	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
-	if !ok {
-		rawX5ChainByte, ok := rawX5Chain.([]byte)
-		if !ok {
-			return fmt.Errorf("failed to get x5chain")
-		}
-		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
-	}
-
-	certificates, err := parseCertificates(rawX5ChainBytes, roots, allowSelfCert)
+	documentSigningKey, err := issuerSigned.DocumentSigningKey()
 	if err != nil {
-		return fmt.Errorf("Failed to parseCertificates: %v", err)
-	}
-
-	documentSigningKey, ok := certificates[0].PublicKey.(*ecdsa.PublicKey)
-	if !ok {
 		return fmt.Errorf("Failed to parseCertificates: %v", err)
 	}
 
@@ -162,20 +143,19 @@ func VerifyIssuerAuth(issuerAuth cose.UntaggedSign1Message, roots *x509.CertPool
 		return fmt.Errorf("Failed to create NewVerifier: %v", err)
 	}
 
-	return issuerAuth.Verify(nil, verifier)
+	return issuerSigned.IssuerAuth.Verify(nil, verifier)
 }
 
-func parseCertificates(rawCerts [][]byte, roots *x509.CertPool, allowSelfCert bool) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-	for _, certData := range rawCerts {
-		cert, err := x509.ParseCertificate(certData)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing certificate: %v", err)
-		}
-		if allowSelfCert {
+func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSelfCert bool) error {
+	certs, err := issuerSigned.X5CertificateChain()
+	if err != nil {
+		return fmt.Errorf("Failed to get X5CertificateChain: %v", err)
+	}
+
+	if allowSelfCert {
+		for _, cert := range certs {
 			roots.AddCert(cert)
 		}
-		certs = append(certs, cert)
 	}
 
 	// veirfy
@@ -185,10 +165,8 @@ func parseCertificates(rawCerts [][]byte, roots *x509.CertPool, allowSelfCert bo
 	}
 
 	// Perform the verification
-	_, err := certs[0].Verify(opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+	if _, err := certs[0].Verify(opts); err != nil {
+		return fmt.Errorf("failed to verify certificate chain: %v", err)
 	}
-
-	return certs, nil
+	return nil
 }

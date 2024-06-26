@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/identity-credential-api-demo/internal/apple_hpke"
@@ -76,7 +75,8 @@ type Element struct {
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := GetRequest{}
 	if err := parseJSON(r, &req); err != nil {
-		jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+
+		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(req)
@@ -101,21 +101,21 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			preview_hpke.AddField(ageOver21),
 		)
 		if err != nil {
-			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: preview: %v", err), http.StatusBadRequest)
 			return
 		}
 	case "openid4vp":
 		// TODO: optinoal function for openid4vp
 		idReq, sessionData, err = openid4vp.BeginIdentityRequest("digital-credentials.dev")
 		if err != nil {
-			jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
 			return
 		}
 	}
 
 	id, err := s.sessions.SaveIdentitySession(sessionData)
 	if err != nil {
-		jsonResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -133,13 +133,13 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) {
 	req := VerifyRequest{}
 	if err := parseJSON(r, &req); err != nil {
-		jsonResponse(w, fmt.Errorf("must supply a valid username i.e. foo@bar.com"), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to parseJSON: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	session, err := s.sessions.GetIdentitySession(req.SessionID)
 	if err != nil {
-		jsonResponse(w, fmt.Errorf("failed to get session"), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -155,40 +155,23 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
-		jsonResponse(w, fmt.Errorf("failed to parse data as JSON"), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to ParseDeviceResponse: %v", err), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(devResp)
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		// issuer data authentication
-		if err := mdoc.VerifyIssuerAuth(doc.IssuerSigned.IssuerAuth, roots, true); err != nil {
-			spew.Dump("2", err)
-			jsonResponse(w, fmt.Errorf("failed to verify issuerAuth: %v", err), http.StatusBadRequest)
+		if err := mdoc.Verify(doc, sessTrans, roots, true); err != nil {
+			spew.Dump(err)
+			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		// validity check
-		mso, err := mdoc.GetMobileSecurityObject(doc.IssuerSigned.IssuerAuth.Payload, time.Now())
+		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
 		if err != nil {
 			spew.Dump(err)
-			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		// mdoc authentication
-		if err := mdoc.VerifyDeviceSigned(mso, doc, sessTrans); err != nil {
-			spew.Dump("1", err)
-			jsonResponse(w, fmt.Errorf("failed to get mso: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		// digest check
-		itemsmap, err := mdoc.VerifiedElements(doc.IssuerSigned.NameSpaces, mso)
-		if err != nil {
-			spew.Dump("3", err)
-			fmt.Println("VerifiedElements:", err)
+			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)
 			return
 		}
 
@@ -226,6 +209,22 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 	if err != nil {
 		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
 	}
+	spew.Dump(dj)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(c)
+	fmt.Fprintf(w, "%s", dj)
+}
+
+func jsonErrorResponse(w http.ResponseWriter, e error, c int) {
+	dj, err := json.Marshal(struct {
+		Error string
+	}{
+		Error: e.Error(),
+	})
+	if err != nil {
+		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
+	}
+	spew.Dump(dj)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(c)
 	fmt.Fprintf(w, "%s", dj)
