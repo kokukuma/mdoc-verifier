@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
+	"github.com/kokukuma/identity-credential-api-demo/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/protocol"
 )
 
 // https://developer.apple.com/documentation/passkit_apple_pay_and_wallet/wallet/verifying_wallet_identity_requests

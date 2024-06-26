@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
+	"github.com/kokukuma/identity-credential-api-demo/protocol"
 )
 
 var (

@@ -12,11 +12,11 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kokukuma/identity-credential-api-demo/internal/apple_hpke"
-	"github.com/kokukuma/identity-credential-api-demo/internal/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/internal/openid4vp"
-	"github.com/kokukuma/identity-credential-api-demo/internal/preview_hpke"
-	"github.com/kokukuma/identity-credential-api-demo/internal/protocol"
+	"github.com/kokukuma/identity-credential-api-demo/apple_hpke"
+	"github.com/kokukuma/identity-credential-api-demo/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/openid4vp"
+	"github.com/kokukuma/identity-credential-api-demo/preview_hpke"
+	"github.com/kokukuma/identity-credential-api-demo/protocol"
 )
 
 var (
