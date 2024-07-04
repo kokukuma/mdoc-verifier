@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -23,8 +24,9 @@ var (
 	roots *x509.CertPool
 	b64   = base64.URLEncoding.WithPadding(base64.StdPadding)
 
-	merchantID = "merchantID"
-	teamID     = "teamID"
+	merchantID          = "PassKit_Identity_Test_Merchant_ID"
+	teamID              = "PassKit_Identity_Test_Team_ID"
+	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
 )
 
 func NewServer() *Server {
@@ -63,7 +65,8 @@ type VerifyRequest struct {
 }
 
 type VerifyResponse struct {
-	Elements []Element `json:"elements"`
+	Elements []Element `json:"elements,omitempty"`
+	Error    string    `json:"error,omitempty"`
 }
 
 type Element struct {
@@ -111,6 +114,12 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
 			return
 		}
+	case "apple":
+		idReq, sessionData, err = apple_hpke.BeginIdentityRequest(applePrivateKeyPath)
+		if err != nil {
+			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: apple: %v", err), http.StatusBadRequest)
+			return
+		}
 	}
 
 	id, err := s.sessions.SaveIdentitySession(sessionData)
@@ -145,6 +154,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	var devResp *mdoc.DeviceResponse
 	var sessTrans []byte
+	var skipVerification bool
 
 	switch req.Protocol {
 	case "openid4vp":
@@ -152,20 +162,27 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	case "preview":
 		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
-		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse([]byte(req.Data), merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
+		// Appleのシミュレータが返す値が不完全で検証できないので一旦スキップ
+		// * devieSignature不完全な状態で返してくる。
+		// * issureAuthのheaderも入ってない
+		skipVerification = true
+		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse(req.Data, merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to ParseDeviceResponse: %v", err), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(devResp)
+	spew.Dump(sessTrans)
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		if err := mdoc.Verify(doc, sessTrans, roots, true); err != nil {
-			spew.Dump(err)
-			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
-			return
+		if !skipVerification {
+			if err := mdoc.Verify(doc, sessTrans, roots, true); err != nil {
+				spew.Dump(err)
+				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
+				return
+			}
 		}
 
 		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
@@ -216,11 +233,9 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 }
 
 func jsonErrorResponse(w http.ResponseWriter, e error, c int) {
-	dj, err := json.Marshal(struct {
-		Error string
-	}{
-		Error: e.Error(),
-	})
+	var resp VerifyResponse
+	resp.Error = e.Error()
+	dj, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
 	}

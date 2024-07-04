@@ -3,10 +3,7 @@ package apple_hpke
 import (
 	"bytes"
 	"crypto/ecdh"
-	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -46,33 +43,12 @@ func getPath(fileName string) (string, error) {
 	return filepath.Join(dir, "testdata", fileName), nil
 }
 
-func loadPrivateKey() (*ecdh.PrivateKey, error) {
+func loadPrivateKeyForTest() (*ecdh.PrivateKey, error) {
 	dataPath, err := getPath("merchant_encryption.key")
 	if err != nil {
 		return nil, err
 	}
-
-	pemString, err := os.ReadFile(dataPath)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode([]byte(pemString))
-	if block == nil || block.Type != "EC PRIVATE KEY" {
-		return nil, fmt.Errorf("failed to decode PEM block containing private key")
-	}
-
-	ecdsaPriv, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	curve := ecdh.P256()
-	ecdhPriv, err := curve.NewPrivateKey(ecdsaPriv.D.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("Error converting to ECDH private key: %v", err)
-	}
-	return ecdhPriv, nil
+	return loadPrivateKey(dataPath)
 }
 
 func TestParseDeviceResponse(t *testing.T) {
@@ -93,13 +69,15 @@ func TestParseDeviceResponse(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	privKey, err := loadPrivateKey()
+	b64SampleHpkeEnvelope := b64.EncodeToString(sampleHpkeEnvelope)
+
+	privKey, err := loadPrivateKeyForTest()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, _, err := ParseDeviceResponse(sampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
+		deviceResp, _, err := ParseDeviceResponse(b64SampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -114,7 +92,7 @@ func TestParseDeviceResponse(t *testing.T) {
 func TestGenerateAppleSessionTranscript(t *testing.T) {
 	setup()
 
-	privKey, err := loadPrivateKey()
+	privKey, err := loadPrivateKeyForTest()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -138,7 +116,7 @@ func TestGenerateAppleSessionTranscript(t *testing.T) {
 func TestPublickey(t *testing.T) {
 	setup()
 
-	privKey, err := loadPrivateKey()
+	privKey, err := loadPrivateKeyForTest()
 	if err != nil {
 		log.Fatal(err)
 	}

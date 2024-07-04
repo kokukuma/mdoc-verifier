@@ -7,6 +7,7 @@ import (
 	"crypto/elliptic"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"time"
@@ -245,8 +246,10 @@ type DeviceNameSpaces map[NameSpace]DeviceSignedItems
 type DeviceSignedItems map[DataElementIdentifier]DataElementValue
 
 type DeviceAuth struct {
-	DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
-	DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
+	// DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
+	// DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
+	DeviceSignature UntaggedSign1Message `json:"deviceSignature"`
+	DeviceMac       UntaggedSign1Message `json:"deviceMac"`
 }
 
 type DocumentError map[DocType]ErrorCode
@@ -293,4 +296,36 @@ func parseECDSA(coseKey COSEKey) (*ecdsa.PublicKey, error) {
 	pubKey.Y = new(big.Int).SetBytes(yBytes)
 
 	return &pubKey, nil
+}
+
+// Appleのシミュレータが返す値がdevieSignature不完全な状態で返してくる。
+// Parse失敗するので一旦無視するために別に作る...
+type UntaggedSign1Message cose.UntaggedSign1Message
+
+func (m *UntaggedSign1Message) MarshalCBOR() ([]byte, error) {
+	return (*cose.UntaggedSign1Message)(m).MarshalCBOR()
+}
+
+func (m *UntaggedSign1Message) UnmarshalCBOR(data []byte) error {
+	// return nil
+	var msg cose.UntaggedSign1Message
+
+	err := cbor.Unmarshal(data, &msg)
+	if err != nil {
+		// Appleのシミュレータが返す値がdevieSignature不完全な状態で返してくる。
+		// Parse失敗するので一旦無視
+		*m = UntaggedSign1Message{}
+		return nil
+	}
+
+	*m = UntaggedSign1Message(msg)
+	return nil
+}
+
+func (m *UntaggedSign1Message) Sign(rand io.Reader, external []byte, signer cose.Signer) error {
+	return (*cose.UntaggedSign1Message)(m).Sign(rand, external, signer)
+}
+
+func (m *UntaggedSign1Message) Verify(external []byte, verifier cose.Verifier) error {
+	return (*cose.UntaggedSign1Message)(m).Verify(external, verifier)
 }
