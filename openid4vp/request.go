@@ -39,7 +39,7 @@ func BeginIdentityRequest(clientID string) (*IdentityRequestOpenID4VP, *protocol
 					},
 					Constraints: Constraints{
 						LimitDisclosure: "required",
-						Fields: convPathField(
+						Fields: ConvPathField(
 							mdoc.FamilyName,
 							mdoc.GivenName,
 						),
@@ -55,7 +55,7 @@ func BeginIdentityRequest(clientID string) (*IdentityRequestOpenID4VP, *protocol
 	}, nil
 }
 
-func convPathField(fs ...mdoc.Element) []PathField {
+func ConvPathField(fs ...mdoc.Element) []PathField {
 	result := []PathField{}
 
 	for _, f := range fs {

@@ -53,6 +53,16 @@ async function getIdentityWithOpenid4VP() {
   }
 }
 
+async function getIdentifyFromEUDIW() {
+  window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=fido-kokukuma.jp.ngrok.io&request_uri=https%3A%2F%2Ffido-kokukuma.jp.ngrok.io%2Fwallet%2Frequest.jwt"
+
+  // ok
+  // window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=fido-kokukuma.jp.ngrok.io&request_uri=https%3A%2F%2Fverifier-backend.eudiw.dev%2Fwallet%2Fdirect_post"
+
+  // ok
+  // window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=verifier-backend.eudiw.dev&request_uri=https%3A%2F%2Fverifier-backend.eudiw.dev%2Fwallet%2Fdirect_post"
+}
+
 async function getIdentity() {
   try {
     const req = await $.post(

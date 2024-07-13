@@ -19,9 +19,24 @@ var (
 type IdentityRequestOpenID4VP struct {
 	ClientID               string                 `json:"client_id"`
 	ClientIDScheme         string                 `json:"client_id_scheme"`
-	ResponseType           string                 `json:"resopnse_type"`
+	ResponseType           string                 `json:"response_type"`
 	Nonce                  string                 `json:"nonce"`
 	PresentationDefinition PresentationDefinition `json:"presentation_definition"`
+	ResponseURI            string                 `json:"response_uri"`
+	ResponseMode           string                 `json:"response_mode"`
+	Scope                  string                 `json:"scope"`
+	State                  string                 `json:"state"`
+	ClientMetadata         ClientMetadata         `json:"client_metadata"`
+}
+
+type ClientMetadata struct {
+	AuthorizationEncryptedResopnseAlg string   `json:"authorization_encrypted_response_alg"`
+	AuthorizationEncryptedResopnseEnc string   `json:"authorization_encrypted_response_enc"`
+	IDTokenEncryptedResponseAlg       string   `json:"id_token_encrypted_response_alg"`
+	IDTokenEncryptedResponseEnc       string   `json:"id_token_encrypted_response_enc"`
+	JwksURI                           string   `json:"jwks_uri"`
+	SubjectSyntaxTypesSupported       []string `json:"subject_syntax_types_supported"`
+	IDTokenSignedResponseAlg          string   `json:"id_token_signed_response_alg"`
 }
 
 type PresentationDefinition struct {
@@ -54,7 +69,14 @@ type MsoMdoc struct {
 }
 
 type OpenID4VPData struct {
-	VPToken string `json:"vp_token"`
+	VPToken                string                 `json:"vp_token"`
+	State                  string                 `json:"state"`
+	PresentationSubmission PresentationSubmission `json:"presentation_submission"`
+}
+type PresentationSubmission struct {
+	ID            string      `json:"id"`
+	DefinitionID  string      `json:"definition_id"`
+	DescriptorMap interface{} `json:"descriptor_map"`
 }
 
 func ParseDeviceResponse(

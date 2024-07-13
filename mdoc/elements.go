@@ -10,6 +10,10 @@ type Element struct {
 }
 
 var (
+	EUFamilyName = Element{
+		Namespace: "eu.europa.ec.eudi.pid.1",
+		Name:      "family_name",
+	}
 	FamilyName = Element{
 		Namespace: "org.iso.18013.5.1",
 		Name:      "family_name",
