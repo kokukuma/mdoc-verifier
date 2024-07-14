@@ -107,7 +107,7 @@ func CreatePresentationDefinition() PresentationDefinition {
 					LimitDisclosure: "required",
 					Fields: FormatFields(
 						doc.EUDIPID1, true,
-						doc.FamilyName,
+						doc.EudiFamilyName,
 					),
 				},
 			},

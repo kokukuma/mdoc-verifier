@@ -16,172 +16,69 @@ var (
 type ElementIdentifier string
 
 var (
-	FamilyName ElementIdentifier = "family_name"
-	GivenName  ElementIdentifier = "given_name"
+	// Namespace: "org.iso.18013.5.1"
+	IsoFamilyName                  ElementIdentifier = "family_name"
+	IsoGivenName                   ElementIdentifier = "given_name"
+	IsoBirthDate                   ElementIdentifier = "birth_date"
+	IsoIssueDate                   ElementIdentifier = "expiry_date"
+	IsoIssuingCountry              ElementIdentifier = "issuing_country"
+	IsoIssuingAuthority            ElementIdentifier = "issuing_authority"
+	IsoDocumentNumber              ElementIdentifier = "document_number"
+	IsoPortrait                    ElementIdentifier = "portrait"
+	IsoDrivingPrivileges           ElementIdentifier = "driving_privileges"
+	IsoUnDistinguishingSign        ElementIdentifier = "un_distinguishing_sign"
+	IsoAdministrativeNumber        ElementIdentifier = "administrative_number"
+	IsoSex                         ElementIdentifier = "sex"
+	IsoHeight                      ElementIdentifier = "height"
+	IsoWeight                      ElementIdentifier = "weight"
+	IsoEyeColour                   ElementIdentifier = "eye_colour"
+	IsoHairColour                  ElementIdentifier = "hair_colour"
+	IsoBirthPlace                  ElementIdentifier = "birth_place"
+	IsoResidentAddress             ElementIdentifier = "resident_address"
+	IsoPortraitCaptureDate         ElementIdentifier = "portrait_capture_date"
+	IsoAgeInYears                  ElementIdentifier = "age_in_years"
+	IsoAgeBirthYear                ElementIdentifier = "age_birth_year"
+	IsoIssuingJurisdiction         ElementIdentifier = "issuing_jurisdiction"
+	IsoNationality                 ElementIdentifier = "nationality"
+	IsoResidentCity                ElementIdentifier = "resident_city"
+	IsoResidentState               ElementIdentifier = "resident_state"
+	IsoResidentPostalCode          ElementIdentifier = "resident_postal_code"
+	IsoResidentCountry             ElementIdentifier = "resident_country"
+	IsoFamilyNameNationalCharacter ElementIdentifier = "family_name_national_character"
+	IsoGivenNameNationalCharacter  ElementIdentifier = "given_name_national_character"
+	IsoSignatureUsualMark          ElementIdentifier = "signature_usual_mark"
+
+	// Namespace: "eu.europa.ec.eudi.pid.1"
+	EudiFamilyName           ElementIdentifier = "family_name"
+	EudiGivenName            ElementIdentifier = "given_name"
+	EudiBirthDate            ElementIdentifier = "birth_date"
+	EudiAgeOver18            ElementIdentifier = "age_over_18"
+	EudiAgeInYears           ElementIdentifier = "age_in_years"
+	EudiAgeBirthYear         ElementIdentifier = "age_birth_year"
+	EudiGivenNameBirth       ElementIdentifier = "given_name_birth"
+	EudiBirthPlace           ElementIdentifier = "birth_place"
+	EudiBirthCountry         ElementIdentifier = "birth_country"
+	EudiBirthState           ElementIdentifier = "birth_state"
+	EudiBirthCity            ElementIdentifier = "birth_city"
+	EudiResidentAddress      ElementIdentifier = "resident_address"
+	EudiResidentCountry      ElementIdentifier = "resident_country"
+	EudiResidentState        ElementIdentifier = "resident_state"
+	EudiResidentCity         ElementIdentifier = "resident_city"
+	EudiResidentPostalCode   ElementIdentifier = "resident_postal_code"
+	EudiResidentStreet       ElementIdentifier = "resident_street"
+	EudiResidentHouseNumber  ElementIdentifier = "resident_house_number"
+	EudiGender               ElementIdentifier = "gender"
+	EudiNationality          ElementIdentifier = "nationality"
+	EudiIssuanceDate         ElementIdentifier = "issuance_date"
+	EudiExpiryDate           ElementIdentifier = "expiry_date"
+	EudiIssuingAuthority     ElementIdentifier = "issuing_authority"
+	EudiDocumentNumber       ElementIdentifier = "document_number"
+	EudiAdministrativeNumber ElementIdentifier = "administrative_number"
+	EudiIssuingCountry       ElementIdentifier = "issuing_country"
+	EudiIssuingJurisdiction  ElementIdentifier = "issuing_jurisdiction"
 )
 
 //
-// var (
-// 	FamilyName = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "family_name",
-// 	}
-//
-// 	GivenName = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "given_name",
-// 	}
-//
-// 	BirthDate = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "birth_date",
-// 	}
-//
-// 	IssueDate = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "issue_date",
-// 	}
-//
-// 	ExpiryDate = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "expiry_date",
-// 	}
-//
-// 	IssuingCountry = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "issuing_country",
-// 	}
-//
-// 	IssuingAuthority = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "issuing_authority",
-// 	}
-//
-// 	DocumentNumber = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "document_number",
-// 	}
-//
-// 	Portrait = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "portrait",
-// 	}
-//
-// 	DrivingPrivileges = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "driving_privileges",
-// 	}
-//
-// 	UnDistinguishingSign = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "un_distinguishing_sign",
-// 	}
-//
-// 	AdministrativeNumber = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "administrative_number",
-// 	}
-//
-// 	Sex = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "sex",
-// 	}
-//
-// 	Height = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "height",
-// 	}
-//
-// 	Weight = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "weight",
-// 	}
-//
-// 	EyeColour = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "eye_colour",
-// 	}
-//
-// 	HairColour = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "hair_colour",
-// 	}
-//
-// 	BirthPlace = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "birth_place",
-// 	}
-//
-// 	ResidentAddress = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "resident_address",
-// 	}
-//
-// 	PortraitCaptureDate = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "portrait_capture_date",
-// 	}
-//
-// 	AgeInYears = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "age_in_years",
-// 	}
-//
-// 	AgeBirthYear = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "age_birth_year",
-// 	}
-//
-// 	IssuingJurisdiction = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "issuing_jurisdiction",
-// 	}
-//
-// 	Nationality = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "nationality",
-// 	}
-//
-// 	ResidentCity = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "resident_city",
-// 	}
-//
-// 	ResidentState = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "resident_state",
-// 	}
-//
-// 	ResidentPostalCode = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "resident_postal_code",
-// 	}
-//
-// 	ResidentCountry = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "resident_country",
-// 	}
-//
-// 	// BiometricTemplate_X = Element{
-// 	// 	Namespace: "org.iso.18013.5.1",
-// 	// 	Name:      "biometric_template_x",
-// 	// }
-//
-// 	FamilyNameNationalCharacter = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "family_name_national_character",
-// 	}
-//
-// 	GivenNameNationalCharacter = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "given_name_national_character",
-// 	}
-//
-// 	SignatureUsualMark = Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      "signature_usual_mark",
-// 	}
-// )
 //
 // // only 21 works now...why..
 // func AgeOver(age int) (Element, error) {
@@ -193,3 +90,8 @@ var (
 // 		Name:      fmt.Sprintf("age_over_%d", age),
 // 	}, nil
 // }
+// 	// BiometricTemplate_X = Element{
+// 	// 	Namespace: "org.iso.18013.5.1",
+// 	// 	Name:      "biometric_template_x",
+// 	// }
+//

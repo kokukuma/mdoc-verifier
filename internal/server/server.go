@@ -115,11 +115,10 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		idReq, sessionData, err = preview_hpke.BeginIdentityRequest(
 			preview_hpke.WithFormat([]string{"mdoc"}),
 			preview_hpke.WithDocType("org.iso.18013.5.1.mDL"),
-			preview_hpke.AddField(doc.ISO1801351, doc.FamilyName, false),
-			preview_hpke.AddField(doc.ISO1801351, doc.GivenName, false),
-			// preview_hpke.AddField(mdoc.GivenName),
-			// preview_hpke.AddField(mdoc.DocumentNumber),
-			// preview_hpke.AddField(mdoc.BirthDate),
+			preview_hpke.AddField(doc.ISO1801351, doc.IsoFamilyName, false),
+			preview_hpke.AddField(doc.ISO1801351, doc.IsoGivenName, false),
+			preview_hpke.AddField(doc.ISO1801351, doc.IsoDocumentNumber, false),
+			preview_hpke.AddField(doc.ISO1801351, doc.IsoBirthDate, false),
 			// preview_hpke.AddField(mdoc.IssueDate),
 			// preview_hpke.AddField(mdoc.IssuingCountry),
 			// preview_hpke.AddField(ageOver21),
@@ -183,7 +182,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
 			return
 		}
-		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(vpData, req.Origin, "digital-credentials.dev", session.GetNonceByte())
+		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(vpData, req.Origin, "digital-credentials.dev", session.GetNonceByte(), "browser")
 
 	case "preview":
 		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())

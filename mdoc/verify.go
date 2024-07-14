@@ -3,6 +3,7 @@ package mdoc
 import (
 	"bytes"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"time"
 
@@ -149,14 +150,30 @@ func VerifyIssuerAuth(issuerSigned IssuerSigned) error {
 	return issuerSigned.IssuerAuth.Verify(nil, verifier)
 }
 
+func certificateToPEM(cert *x509.Certificate) {
+	if cert == nil {
+		return
+	}
+
+	pemBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	}
+	fmt.Println(string(pem.EncodeToMemory(pemBlock)))
+	return
+}
+
 func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSelfCert, allowExpiredCert bool) error {
 	certs, err := issuerSigned.X5CertificateChain()
 	if err != nil {
 		return fmt.Errorf("Failed to get X5CertificateChain: %v", err)
 	}
-	spew.Dump("--------------- certs-")
-	spew.Dump(certs)
+	spew.Dump("--------------- certs")
+	for _, cert := range certs {
+		certificateToPEM(cert)
+	}
 
+	// 証明書が見つからないので一時凌ぎ...
 	if allowSelfCert {
 		for _, cert := range certs {
 			roots.AddCert(cert)

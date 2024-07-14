@@ -3,6 +3,7 @@ package openid4vp
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/identity-credential-api-demo/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/protocol"
 	"gopkg.in/square/go-jose.v2"
 )
 
@@ -17,6 +19,7 @@ func ParseDeviceResponse(
 	vpData *OpenID4VPData,
 	origin, clientID string,
 	nonceByte []byte,
+	sessTransType string,
 ) (*mdoc.DeviceResponse, []byte, error) {
 
 	decoded, err := b64.DecodeString(vpData.VPToken)
@@ -30,10 +33,15 @@ func ParseDeviceResponse(
 	}
 
 	// For EUDIW
-	sessTrans, err := generateOID4VPSessionTranscript(nonceByte, clientID, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", vpData.APU)
-
-	// For browser
-	// sessTrans, err := generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
+	var sessTrans []byte
+	switch sessTransType {
+	case "browser":
+		sessTrans, err = generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
+	case "eudiw":
+		sessTrans, err = generateOID4VPSessionTranscript(nonceByte, clientID, origin, vpData.APU)
+	default:
+		return nil, nil, errors.New("unsupported session transcript type")
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create session transcript: %v", err)
 	}

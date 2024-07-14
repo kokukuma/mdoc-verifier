@@ -55,19 +55,23 @@ func generateBrowserSessionTranscript(nonce []byte, origin string, requesterIdHa
 	return transcript, nil
 }
 
+// https://github.com/eu-digital-identity-wallet/eudi-lib-android-wallet-core/blob/327c006eeb256353a8ed064adb12487db1bd352c/wallet-core/src/main/java/eu/europa/ec/eudi/wallet/internal/Openid4VpUtils.kt#L26
 func generateOID4VPSessionTranscript(nonce []byte, clientID, responseURI, apu string) ([]byte, error) {
+
+	// nonce and mdocGeneratedNonce must be treated as tstr
+	nonceStr := string(nonce)
 	mdocGeneratedNonce, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(apu)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode mdocGeneratedNonce")
 	}
+	mdocGeneratedNonceStr := string(mdocGeneratedNonce)
 
-	clientIdToHash, err := cbor.Marshal([]interface{}{clientID, mdocGeneratedNonce})
+	clientIdToHash, err := cbor.Marshal([]interface{}{clientID, mdocGeneratedNonceStr})
 	if err != nil {
 		return nil, err
 	}
 
-	// Create responseUriToHash
-	responseUriToHash, err := cbor.Marshal([]interface{}{responseURI, mdocGeneratedNonce})
+	responseUriToHash, err := cbor.Marshal([]interface{}{responseURI, mdocGeneratedNonceStr})
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +85,7 @@ func generateOID4VPSessionTranscript(nonce []byte, clientID, responseURI, apu st
 		[]interface{}{ // OID4VPHandover
 			clientIdHash,
 			responseURIHash,
-			nonce,
+			nonceStr,
 		},
 	}
 

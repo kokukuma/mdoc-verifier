@@ -60,7 +60,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 		ResponseType:           "vp_token",
 		ResponseMode:           "direct_post.jwt",
 		ResponseURI:            "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post",
-		Nonce:                  string(session.GetNonceByte()),
+		Nonce:                  session.Nonce.String(),
 		State:                  sessionID,
 		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
 		ClientMetadata:         openid4vp.CreateClientMetadata(),
@@ -109,7 +109,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(vpData, "origin", serverDomain, session.GetNonceByte())
+	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(vpData, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", serverDomain, []byte(session.Nonce.String()), "eudiw")
 	if err != nil {
 		spew.Dump(err)
 	}
