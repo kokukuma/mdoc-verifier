@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 // TODO: session transcript: 9.1.5.1 Session transcript

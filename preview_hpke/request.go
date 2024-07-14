@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	doc "github.com/kokukuma/identity-credential-api-demo/document"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	doc "github.com/kokukuma/mdoc-verifier/document"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 func BeginIdentityRequest(options ...IdentityRequestOption) (*IdentityRequestPreview, *protocol.SessionData, error) {

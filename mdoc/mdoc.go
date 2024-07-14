@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 	"github.com/veraison/go-cose"
 )
 

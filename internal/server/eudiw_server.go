@@ -9,9 +9,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
-	"github.com/kokukuma/identity-credential-api-demo/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/openid4vp"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
+	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {

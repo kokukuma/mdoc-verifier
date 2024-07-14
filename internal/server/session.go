@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 type Sessions struct {

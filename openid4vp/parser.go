@@ -10,8 +10,8 @@ import (
 	"net/url"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 	"gopkg.in/square/go-jose.v2"
 )
 

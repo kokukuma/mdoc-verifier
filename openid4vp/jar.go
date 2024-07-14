@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/kokukuma/identity-credential-api-demo/internal/cryptoroot"
+	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 )
 
 type JWTSecuredAuthorizeRequest struct {

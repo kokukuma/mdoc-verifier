@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	doc "github.com/kokukuma/identity-credential-api-demo/document"
-	"github.com/kokukuma/identity-credential-api-demo/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	doc "github.com/kokukuma/mdoc-verifier/document"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 var (

@@ -1,4 +1,4 @@
-module github.com/kokukuma/identity-credential-api-demo
+module github.com/kokukuma/mdoc-verifier
 
 go 1.17
 

@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	doc "github.com/kokukuma/identity-credential-api-demo/document"
+	doc "github.com/kokukuma/mdoc-verifier/document"
 )
 
 var (

@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/kokukuma/identity-credential-api-demo/openid4vp"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 func BeginIdentityRequestOpenID4VP(clientID string) (*openid4vp.AuthorizationRequest, *protocol.SessionData, error) {

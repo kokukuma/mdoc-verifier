@@ -5,7 +5,7 @@ import (
 	"crypto/elliptic"
 	"encoding/base64"
 
-	"github.com/kokukuma/identity-credential-api-demo/internal/cryptoroot"
+	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 )
 
 type JWKS struct {
