@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/kokukuma/identity-credential-api-demo/mdoc"
+	doc "github.com/kokukuma/identity-credential-api-demo/document"
 	"github.com/kokukuma/identity-credential-api-demo/protocol"
 )
 
@@ -63,12 +63,12 @@ func WithDocType(docType string) IdentityRequestOption {
 	}
 }
 
-func AddField(elem mdoc.Element) IdentityRequestOption {
+func AddField(ns doc.NameSpace, id doc.ElementIdentifier, retain bool) IdentityRequestOption {
 	return func(ir *IdentityRequestPreview) {
 		ir.Selector.Fields = append(ir.Selector.Fields, Field{
-			Namespace:      elem.Namespace,
-			Name:           elem.Name,
-			IntentToRetain: false,
+			Namespace:      ns,
+			Name:           id,
+			IntentToRetain: retain,
 		})
 	}
 }

@@ -1,0 +1,178 @@
+package server
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
+	"github.com/kokukuma/identity-credential-api-demo/mdoc"
+	"github.com/kokukuma/identity-credential-api-demo/openid4vp"
+	"github.com/kokukuma/identity-credential-api-demo/protocol"
+)
+
+func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
+	nonce, err := protocol.CreateNonce()
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	sessionData := &protocol.SessionData{
+		Nonce: nonce,
+	}
+
+	id, err := s.sessions.SaveIdentitySession(sessionData)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	jar := openid4vp.JWTSecuredAuthorizeRequest{
+		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
+		ClientID:          serverDomain,
+		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, id),
+	}
+
+	jsonResponse(w, struct {
+		URL string `json:"url"`
+	}{
+		URL: jar.String(),
+	}, http.StatusOK)
+}
+
+func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["sessionid"]
+	session, err := s.sessions.GetIdentitySession(sessionID)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// create authorize request
+	vpReq := openid4vp.AuthorizationRequest{
+		ClientID:               "fido-kokukuma.jp.ngrok.io",
+		ClientIDScheme:         "x509_san_dns",
+		ResponseType:           "vp_token",
+		ResponseMode:           "direct_post.jwt",
+		ResponseURI:            "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post",
+		Nonce:                  string(session.GetNonceByte()),
+		State:                  sessionID,
+		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
+		ClientMetadata:         openid4vp.CreateClientMetadata(),
+	}
+
+	// create RequestObject
+	ro := openid4vp.RequestObject{
+		AuthorizationRequest: vpReq,
+		StandardClaims: jwt.StandardClaims{
+			IssuedAt: time.Now().Unix(),
+			Audience: "https://self-issued.me/v2",
+		},
+	}
+	tokenString, err := ro.Sign(s.sigKey, s.certChain)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/oauth-authz-req+jwt")
+
+	fmt.Fprintf(w, "%s", tokenString)
+}
+
+func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
+	jwks, err := ecdsaPublicKeyToJWKS(&s.encKey.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(jwks)
+}
+
+func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
+	vpData, err := openid4vp.ParseDirectPostJWT(r, s.encKey)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	spew.Dump(vpData)
+
+	session, err := s.sessions.GetIdentitySession(vpData.State)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(vpData, "origin", serverDomain, session.GetNonceByte())
+	if err != nil {
+		spew.Dump(err)
+	}
+
+	spew.Dump(devResp)
+	spew.Dump(sessTrans)
+
+	skipVerification := false
+
+	var resp VerifyResponse
+	for _, doc := range devResp.Documents {
+		if !skipVerification {
+			if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
+				spew.Dump(err)
+				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
+		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
+		if err != nil {
+			spew.Dump(err)
+			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		for ns, items := range itemsmap {
+			for _, item := range items {
+				resp.Elements = append(resp.Elements, Element{
+					NameSpace:  ns,
+					Identifier: item.ElementIdentifier,
+					Value:      item.ElementValue,
+				})
+			}
+		}
+	}
+	s.sessions.AddVerifyResponse(vpData.State, resp)
+
+	jsonResponse(w, struct {
+		RedirectURI string `json:"redirect_uri"`
+	}{
+		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io?session_id=%s", vpData.State),
+	}, http.StatusOK)
+}
+
+type FinishIdentityRequest struct {
+	SessionID string `json:"session_id"`
+}
+
+func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
+	req := FinishIdentityRequest{}
+	if err := parseJSON(r, &req); err != nil {
+
+		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := s.sessions.GetVerifyResponse(req.SessionID)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	spew.Dump(resp)
+	jsonResponse(w, resp, http.StatusOK)
+}

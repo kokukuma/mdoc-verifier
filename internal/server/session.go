@@ -26,6 +26,24 @@ func (s *Sessions) SaveIdentitySession(data *protocol.SessionData) (string, erro
 	return id, nil
 }
 
+func (s *Sessions) AddVerifyResponse(id string, vr VerifyResponse) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.sessions[id].VerifyResponse = &vr
+	return nil
+}
+func (s *Sessions) GetVerifyResponse(id string) (*VerifyResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, ok := s.sessions[id]
+	if !ok {
+		return nil, errors.New("session not found")
+	}
+	return session.VerifyResponse, nil
+}
+
 func (s *Sessions) GetIdentitySession(id string) (*protocol.SessionData, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -44,6 +62,7 @@ func NewSessions() *Sessions {
 }
 
 type Session struct {
-	id   string
-	data *protocol.SessionData
+	id             string
+	data           *protocol.SessionData
+	VerifyResponse *VerifyResponse
 }

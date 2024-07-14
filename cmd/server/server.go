@@ -25,10 +25,11 @@ func main() {
 	r.HandleFunc("/verifyIdentityResponse", srv.VerifyIdentityResponse).Methods("POST", "OPTIONS")
 
 	// For EUDIW
-	r.HandleFunc("/wallet/request.jwt", srv.RequestJWT).Methods("GET", "POST", "OPTIONS")
-	r.HandleFunc("/wallet/direct_post", srv.DirectPost).Methods("GET", "POST", "OPTIONS")
-	// r.HandleFunc("/wallet/public-keys.json", srv.PublicKeys).Methods("GET", "POST", "OPTIONS")
+	r.HandleFunc("/wallet/startIdentityRequest", srv.StartIdentityRequest).Methods("GET", "POST", "OPTIONS")
+	r.HandleFunc("/wallet/request.jwt/{sessionid}", srv.RequestJWT).Methods("GET", "POST", "OPTIONS")
 	r.HandleFunc("/wallet/jwks.json", srv.JWKS).Methods("GET", "POST", "OPTIONS")
+	r.HandleFunc("/wallet/direct_post", srv.DirectPost).Methods("GET", "POST", "OPTIONS")
+	r.HandleFunc("/wallet/finishIdentityRequest", srv.FinishIdentityRequest).Methods("GET", "POST", "OPTIONS")
 
 	serverAddress := ":8080"
 	log.Println("starting fido server at", serverAddress)

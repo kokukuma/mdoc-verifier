@@ -2,12 +2,9 @@ package openid4vp
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
-	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/identity-credential-api-demo/mdoc"
-	"github.com/kokukuma/identity-credential-api-demo/protocol"
+	doc "github.com/kokukuma/identity-credential-api-demo/document"
 )
 
 var (
@@ -16,7 +13,7 @@ var (
 
 // https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 
-type IdentityRequestOpenID4VP struct {
+type AuthorizationRequest struct {
 	ClientID               string                 `json:"client_id"`
 	ClientIDScheme         string                 `json:"client_id_scheme"`
 	ResponseType           string                 `json:"response_type"`
@@ -55,11 +52,6 @@ type Constraints struct {
 	Fields          []PathField `json:"fields"`
 }
 
-type PathField struct {
-	Path           []string `json:"path"`
-	IntentToRetain bool     `json:"intent_to_retain"`
-}
-
 type Format struct {
 	MsoMdoc MsoMdoc `json:"mso_mdoc,omitempty"`
 }
@@ -72,6 +64,10 @@ type OpenID4VPData struct {
 	VPToken                string                 `json:"vp_token"`
 	State                  string                 `json:"state"`
 	PresentationSubmission PresentationSubmission `json:"presentation_submission"`
+
+	// ?
+	APV string
+	APU string
 }
 type PresentationSubmission struct {
 	ID            string      `json:"id"`
@@ -79,29 +75,70 @@ type PresentationSubmission struct {
 	DescriptorMap interface{} `json:"descriptor_map"`
 }
 
-func ParseDeviceResponse(
-	data, origin, clientID string,
-	nonceByte []byte,
-) (*mdoc.DeviceResponse, []byte, error) {
-	var msg OpenID4VPData
-	if err := json.Unmarshal([]byte(data), &msg); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse data as JSON")
-	}
+type PathField struct {
+	Path           []string `json:"path"`
+	IntentToRetain bool     `json:"intent_to_retain"`
+}
 
-	decoded, err := b64.DecodeString(msg.VPToken)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode base64")
-	}
+func FormatFields(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier) []PathField {
+	result := []PathField{}
 
-	var claims mdoc.DeviceResponse
-	if err := cbor.Unmarshal(decoded, &claims); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse data as JSON")
+	for _, id := range ids {
+		result = append(result, PathField{
+			Path:           []string{fmt.Sprintf("$['%s']['%s']", ns, id)},
+			IntentToRetain: retain,
+		})
 	}
+	return result
+}
 
-	sessTrans, err := generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
+func CreatePresentationDefinition() PresentationDefinition {
+	return PresentationDefinition{
+		ID: "mDL-request-demo",
+		InputDescriptors: []InputDescriptor{
+			{
+				ID: "eu.europa.ec.eudi.pid.1",
+				Format: Format{
+					MsoMdoc: MsoMdoc{
+						Alg: []string{"ES256"},
+					},
+				},
+				Constraints: Constraints{
+					LimitDisclosure: "required",
+					Fields: FormatFields(
+						doc.EUDIPID1, true,
+						doc.FamilyName,
+					),
+				},
+			},
+			// {
+			// 	ID: "org.iso.18013.5.1.mDL",
+			// 	Format: Format{
+			// 		MsoMdoc: MsoMdoc{
+			// 			Alg: []string{"ES256"},
+			// 		},
+			// 	},
+			// 	Constraints: Constraints{
+			// 		LimitDisclosure: "required",
+			// 		Fields: FormatFields(
+			// 			doc.ISO1801351, true,
+			// 			doc.FamilyName,
+			// 			doc.GivenName,
+			// 		),
+			// 	},
+			// },
+		},
 	}
+}
 
-	return &claims, sessTrans, nil
+func CreateClientMetadata() ClientMetadata {
+	return ClientMetadata{
+		AuthorizationEncryptedResopnseAlg: "ECDH-ES",
+		AuthorizationEncryptedResopnseEnc: "A128CBC-HS256",
+		IDTokenEncryptedResponseAlg:       "RSA-OAEP-256",
+		IDTokenEncryptedResponseEnc:       "A128CBC-HS256",
+		JwksURI:                           "https://fido-kokukuma.jp.ngrok.io/wallet/jwks.json",
+		SubjectSyntaxTypesSupported:       []string{"urn:ietf:params:oauth:jwk-thumbprint"},
+		IDTokenSignedResponseAlg:          "RS256",
+	}
 }

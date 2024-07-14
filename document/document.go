@@ -1,17 +1,27 @@
-package mdoc
+package document
 
-// ISO_IEC_18013-5_2021(en).pdf
+type DocType string
 
-// type Element struct {
-// 	Namespace string
-// 	Name      string
-// }
+var (
+	IsoMDL DocType = "org.iso.18013.5.1.mDL"
+)
+
+type NameSpace string
+
+var (
+	ISO1801351 NameSpace = "org.iso.18013.5.1"
+	EUDIPID1   NameSpace = "eu.europa.ec.eudi.pid.1"
+)
+
+type ElementIdentifier string
+
+var (
+	FamilyName ElementIdentifier = "family_name"
+	GivenName  ElementIdentifier = "given_name"
+)
+
 //
 // var (
-// 	EUFamilyName = Element{
-// 		Namespace: "eu.europa.ec.eudi.pid.1",
-// 		Name:      "family_name",
-// 	}
 // 	FamilyName = Element{
 // 		Namespace: "org.iso.18013.5.1",
 // 		Name:      "family_name",

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/veraison/go-cose"
 )
 
@@ -14,7 +15,7 @@ var (
 )
 
 // ISO/IEC 18013-5
-func Verify(doc Document, sessTrans []byte, roots *x509.CertPool, allowSelfCert bool) error {
+func Verify(doc Document, sessTrans []byte, roots *x509.CertPool, allowSelfCert, allowExpiredCert bool) error {
 
 	mso, err := doc.IssuerSigned.MobileSecurityObject()
 	if err != nil {
@@ -28,7 +29,7 @@ func Verify(doc Document, sessTrans []byte, roots *x509.CertPool, allowSelfCert 
 
 	// 9.3.1 Inspection procedure for issuer data authentication
 	// 1. Validate the certificate included in the MSO header according to 9.3.3.
-	if err := VerifyCertificate(doc.IssuerSigned, roots, allowSelfCert); err != nil {
+	if err := VerifyCertificate(doc.IssuerSigned, roots, allowSelfCert, allowExpiredCert); err != nil {
 		return fmt.Errorf("failed to VerifyCertificate: %v", err)
 	}
 
@@ -59,8 +60,10 @@ func Verify(doc Document, sessTrans []byte, roots *x509.CertPool, allowSelfCert 
 	if err != nil {
 		return fmt.Errorf("failed to get certificate: %v", err)
 	}
-	if mso.ValidityInfo.Signed.Before(certificate.NotBefore) || mso.ValidityInfo.Signed.After(certificate.NotAfter) {
-		return fmt.Errorf("failed to veirfy signed date: %v", mso.ValidityInfo)
+	if !allowExpiredCert {
+		if mso.ValidityInfo.Signed.Before(certificate.NotBefore) || mso.ValidityInfo.Signed.After(certificate.NotAfter) {
+			return fmt.Errorf("failed to veirfy signed date: %v: NotBefore=%v: NotAfter=%v: ", mso.ValidityInfo, certificate.NotBefore, certificate.NotAfter)
+		}
 	}
 	if Now.Before(mso.ValidityInfo.ValidFrom) || Now.After(mso.ValidityInfo.ValidUntil) {
 		return fmt.Errorf("failed to check validity: %v", mso.ValidityInfo)
@@ -146,11 +149,13 @@ func VerifyIssuerAuth(issuerSigned IssuerSigned) error {
 	return issuerSigned.IssuerAuth.Verify(nil, verifier)
 }
 
-func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSelfCert bool) error {
+func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSelfCert, allowExpiredCert bool) error {
 	certs, err := issuerSigned.X5CertificateChain()
 	if err != nil {
 		return fmt.Errorf("Failed to get X5CertificateChain: %v", err)
 	}
+	spew.Dump("--------------- certs-")
+	spew.Dump(certs)
 
 	if allowSelfCert {
 		for _, cert := range certs {
@@ -162,6 +167,14 @@ func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSel
 	opts := x509.VerifyOptions{
 		Roots:     roots,
 		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+	if allowExpiredCert {
+		date, _ := time.Parse("2006-01-02", "2024-05-02")
+		opts = x509.VerifyOptions{
+			Roots:       roots,
+			KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			CurrentTime: date,
+		}
 	}
 
 	// Perform the verification

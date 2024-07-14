@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	doc "github.com/kokukuma/identity-credential-api-demo/document"
 	"github.com/kokukuma/identity-credential-api-demo/mdoc"
 	"github.com/kokukuma/identity-credential-api-demo/protocol"
 )
@@ -31,9 +32,9 @@ type Selector struct {
 }
 
 type Field struct {
-	Namespace      string `json:"namespace"`
-	Name           string `json:"name"`
-	IntentToRetain bool   `json:"intentToRetain"`
+	Namespace      doc.NameSpace         `json:"namespace"`
+	Name           doc.ElementIdentifier `json:"name"`
+	IntentToRetain bool                  `json:"intentToRetain"`
 }
 
 type Retention struct {

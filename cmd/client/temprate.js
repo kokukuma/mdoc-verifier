@@ -1,3 +1,5 @@
+
+
 async function getIdentityWithOpenid4VP() {
   try {
     const req = await $.post(
@@ -53,15 +55,6 @@ async function getIdentityWithOpenid4VP() {
   }
 }
 
-async function getIdentifyFromEUDIW() {
-  window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=fido-kokukuma.jp.ngrok.io&request_uri=https%3A%2F%2Ffido-kokukuma.jp.ngrok.io%2Fwallet%2Frequest.jwt"
-
-  // ok
-  // window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=fido-kokukuma.jp.ngrok.io&request_uri=https%3A%2F%2Fverifier-backend.eudiw.dev%2Fwallet%2Fdirect_post"
-
-  // ok
-  // window.location.href = "eudi-openid4vp://verifier-backend.eudiw.dev?client_id=verifier-backend.eudiw.dev&request_uri=https%3A%2F%2Fverifier-backend.eudiw.dev%2Fwallet%2Fdirect_post"
-}
 
 async function getIdentity() {
   try {
@@ -119,3 +112,61 @@ async function getIdentity() {
   }
 }
 
+async function getIdentifyFromEUDIW() {
+  try {
+    const req = await $.post(
+        "https://{{.ServerDomain}}/wallet/startIdentityRequest",
+        JSON.stringify({}),
+        function (data, status) {
+          return data
+        },
+        'json').fail(function(err) {
+            console.log(err);
+            alert("failed to get request: "+ JSON.stringify(err));
+        });
+    console.log(req)
+    console.log(req.data)
+
+    window.location.href = req.url
+  } catch (error) {
+    console.log(error)
+    alert(error)
+  }
+}
+
+
+// URLからクエリパラメータを取得する関数
+function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
+function onload() {
+    const sessionId = getQueryParam('session_id');
+
+    // 'execute' パラメータが存在する場合、対応するコードを実行
+    if (sessionId) {
+        try {
+          const req = $.post(
+              "https://{{.ServerDomain}}/wallet/finishIdentityRequest",
+              JSON.stringify({
+                session_id: sessionId,
+              }),
+              function (data, status) {
+                return data
+              },
+              'json').fail(function(err) {
+                  console.log(err);
+                  alert("failed to get request: "+ JSON.stringify(err));
+              }).then(res => {
+                alert(JSON.stringify(res));
+                console.log(res)
+              });
+        } catch (error) {
+          console.log(error)
+          alert(error)
+        }
+    }
+}
+
+window.onload = onload
