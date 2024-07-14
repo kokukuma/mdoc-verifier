@@ -183,7 +183,6 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(vpData, req.Origin, "digital-credentials.dev", session.GetNonceByte(), "browser")
-
 	case "preview":
 		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
 	case "apple":
@@ -198,13 +197,11 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	spew.Dump(devResp)
-	spew.Dump(sessTrans)
 
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
 		if !skipVerification {
 			if err := mdoc.Verify(doc, sessTrans, roots, true, false); err != nil {
-				spew.Dump(err)
 				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 				return
 			}
@@ -212,7 +209,6 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
 		if err != nil {
-			spew.Dump(err)
 			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)
 			return
 		}

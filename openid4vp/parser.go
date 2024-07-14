@@ -2,6 +2,7 @@ package openid4vp
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,7 +23,7 @@ func ParseDeviceResponse(
 	sessTransType string,
 ) (*mdoc.DeviceResponse, []byte, error) {
 
-	decoded, err := b64.DecodeString(vpData.VPToken)
+	decoded, err := base64.URLEncoding.DecodeString(vpData.VPToken)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode base64")
 	}

@@ -51,7 +51,7 @@ async function getIdentityWithOpenid4VP() {
 
   } catch (error) {
     console.log(error)
-    alert(error)
+    alert(JSON.stringify(error));
   }
 }
 

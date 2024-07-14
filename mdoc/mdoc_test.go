@@ -77,7 +77,7 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 
 	t.Run("Verify", func(t *testing.T) {
 		for _, doc := range topics.Identity.Documents {
-			if err := Verify(doc, sessionTranscript, roots, false); err != nil {
+			if err := Verify(doc, sessionTranscript, roots, false, false); err != nil {
 				t.Fatalf("failed to Verify %v", err)
 			}
 		}
