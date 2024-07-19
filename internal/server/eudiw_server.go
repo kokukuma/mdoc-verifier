@@ -31,6 +31,7 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: by valueの場合とby referenceの場合両方やってみるか？
 	jar := openid4vp.JWTSecuredAuthorizeRequest{
 		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
 		ClientID:          serverDomain,
@@ -55,15 +56,19 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 	// create authorize request
 	vpReq := openid4vp.AuthorizationRequest{
-		ClientID:               "fido-kokukuma.jp.ngrok.io",
-		ClientIDScheme:         "x509_san_dns",
-		ResponseType:           "vp_token",
-		ResponseMode:           "direct_post.jwt",
-		ResponseURI:            "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post",
-		Nonce:                  session.Nonce.String(),
-		State:                  sessionID,
+		ClientID:       "fido-kokukuma.jp.ngrok.io",
+		ClientIDScheme: "x509_san_dns",
+		ResponseType:   "vp_token",
+		ResponseMode:   "direct_post.jwt",
+		ResponseURI:    "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post",
+		Nonce:          session.Nonce.String(),
+		State:          sessionID,
+
+		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
+		//       まぁどっちでもいい。
 		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
-		ClientMetadata:         openid4vp.CreateClientMetadata(),
+		// TODO: JwksURIは外から渡す形にしたほうがいい
+		ClientMetadata: openid4vp.CreateClientMetadata(),
 	}
 
 	// create RequestObject
@@ -96,20 +101,20 @@ func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
-	vpData, err := openid4vp.ParseDirectPostJWT(r, s.encKey)
+	ar, err := openid4vp.ParseDirectPostJWT(r, s.encKey)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(vpData)
+	spew.Dump(ar)
 
-	session, err := s.sessions.GetIdentitySession(vpData.State)
+	session, err := s.sessions.GetIdentitySession(ar.State)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(vpData, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", serverDomain, []byte(session.Nonce.String()), "eudiw")
+	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(ar, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", serverDomain, []byte(session.Nonce.String()), "eudiw")
 	if err != nil {
 		spew.Dump(err)
 	}
@@ -146,12 +151,12 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.sessions.AddVerifyResponse(vpData.State, resp)
+	s.sessions.AddVerifyResponse(ar.State, resp)
 
 	jsonResponse(w, struct {
 		RedirectURI string `json:"redirect_uri"`
 	}{
-		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io?session_id=%s", vpData.State),
+		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io?session_id=%s", ar.State),
 	}, http.StatusOK)
 }
 

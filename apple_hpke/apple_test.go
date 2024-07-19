@@ -48,7 +48,7 @@ func loadPrivateKeyForTest() (*ecdh.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return loadPrivateKey(dataPath)
+	return LoadPrivateKey(dataPath)
 }
 
 func TestParseDeviceResponse(t *testing.T) {
@@ -69,15 +69,13 @@ func TestParseDeviceResponse(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	b64SampleHpkeEnvelope := b64.EncodeToString(sampleHpkeEnvelope)
-
 	privKey, err := loadPrivateKeyForTest()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, _, err := ParseDeviceResponse(b64SampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
+		deviceResp, _, err := ParseDeviceResponse(sampleHpkeEnvelope, merchantID, teamID, privKey, nonceByte)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

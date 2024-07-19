@@ -13,6 +13,8 @@ type Sessions struct {
 	sessions map[string]*Session
 }
 
+// TODO: Sessionは全部こっち側に持ってくる
+
 func (s *Sessions) SaveIdentitySession(data *protocol.SessionData) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/veraison/go-cose"
 )
 
@@ -168,12 +167,8 @@ func VerifyCertificate(issuerSigned IssuerSigned, roots *x509.CertPool, allowSel
 	if err != nil {
 		return fmt.Errorf("Failed to get X5CertificateChain: %v", err)
 	}
-	spew.Dump("--------------- certs")
-	for _, cert := range certs {
-		certificateToPEM(cert)
-	}
 
-	// 証明書が見つからないので一時凌ぎ...
+	// TODO: 証明書が見つからないので一時凌ぎ...
 	if allowSelfCert {
 		for _, cert := range certs {
 			roots.AddCert(cert)

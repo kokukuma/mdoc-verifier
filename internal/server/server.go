@@ -15,6 +15,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
+	"github.com/kokukuma/mdoc-verifier/document"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
@@ -90,9 +91,9 @@ type VerifyResponse struct {
 }
 
 type Element struct {
-	NameSpace  mdoc.NameSpace             `json:"namespace"`
-	Identifier mdoc.DataElementIdentifier `json:"identifier"`
-	Value      mdoc.DataElementValue      `json:"value"`
+	NameSpace  document.NameSpace         `json:"namespace"`
+	Identifier document.ElementIdentifier `json:"identifier"`
+	Value      document.ElementValue      `json:"value"`
 }
 
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +191,13 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		// * devieSignature不完全な状態で返してくる。
 		// * issureAuthのheaderも入ってない
 		skipVerification = true
-		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse(req.Data, merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
+		decoded, err := b64.DecodeString(req.Data)
+		if err != nil {
+			// return nil, nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
+			jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+			return
+		}
+		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse(decoded, merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
 	}
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to ParseDeviceResponse: %v", err), http.StatusBadRequest)

@@ -45,6 +45,9 @@ type InputDescriptor struct {
 	ID          string      `json:"id"`
 	Format      Format      `json:"format"`
 	Constraints Constraints `json:"constraints"`
+	// TODO:
+	SubmissionRequirements interface{} `json:"submission_requirements"`
+	Group                  []string    `json:"group"`
 }
 
 type Constraints struct {
@@ -53,19 +56,30 @@ type Constraints struct {
 }
 
 type Format struct {
-	MsoMdoc MsoMdoc `json:"mso_mdoc,omitempty"`
+	MsoMdoc   MsoMdoc   `json:"mso_mdoc,omitempty"`
+	LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
+	JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
 }
 
 type MsoMdoc struct {
 	Alg []string `json:"alg"`
 }
 
-type OpenID4VPData struct {
+type JwtVCJSON struct {
+	Alg []string `json:"alg"`
+}
+
+type LdpVP struct {
+	ProofType []string `json:"proof_type"`
+}
+
+type AuthorizationResponse struct {
 	VPToken                string                 `json:"vp_token"`
+	IDToken                string                 `json:"id_token"`
 	State                  string                 `json:"state"`
 	PresentationSubmission PresentationSubmission `json:"presentation_submission"`
 
-	// ?
+	// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6.1.2
 	APV string
 	APU string
 }
@@ -77,7 +91,13 @@ type PresentationSubmission struct {
 
 type PathField struct {
 	Path           []string `json:"path"`
+	Filter         Filter   `json:"filter,omitempty"`
 	IntentToRetain bool     `json:"intent_to_retain"`
+}
+
+type Filter struct {
+	Type    string `json:"type"`
+	Pattern string `json:"pattern"`
 }
 
 func FormatFields(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier) []PathField {

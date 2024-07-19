@@ -13,19 +13,10 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/protocol"
 	"github.com/veraison/go-cose"
 )
-
-// ISO_IEC_18013-5_2021(en).pdf
-
-type DocType string
-
-type NameSpace string
-
-type DataElementIdentifier string
-
-type DataElementValue interface{}
 
 type DeviceResponse struct {
 	Version        string          `json:"version"`
@@ -35,10 +26,10 @@ type DeviceResponse struct {
 }
 
 type Document struct {
-	DocType      DocType      `json:"docType"`
-	IssuerSigned IssuerSigned `json:"issuerSigned"`
-	DeviceSigned DeviceSigned `json:"deviceSigned"`
-	Errors       Errors       `json:"errors"`
+	DocType      document.DocType `json:"docType"`
+	IssuerSigned IssuerSigned     `json:"issuerSigned"`
+	DeviceSigned DeviceSigned     `json:"deviceSigned"`
+	Errors       Errors           `json:"errors"`
 }
 
 type IssuerSigned struct {
@@ -113,8 +104,34 @@ func (i *IssuerSigned) MobileSecurityObject() (*MobileSecurityObject, error) {
 	return &mso, nil
 }
 
-func (i *IssuerSigned) IssuerSignedItems() (map[NameSpace][]IssuerSignedItem, error) {
-	items := map[NameSpace][]IssuerSignedItem{}
+func (i *IssuerSigned) GetElementValue(namespace document.NameSpace, elementIdentifier document.ElementIdentifier) (document.ElementValue, error) {
+	var itemBytes []IssuerSignedItemBytes
+
+	for ns, ib := range i.NameSpaces {
+		if ns == namespace {
+			itemBytes = ib
+		}
+	}
+
+	if itemBytes == nil {
+		return nil, fmt.Errorf("namespace not found")
+	}
+
+	for _, ib := range itemBytes {
+		item, err := ib.IssuerSignedItem()
+		if err != nil {
+			return nil, err
+		}
+		if item.ElementIdentifier == elementIdentifier {
+			return item.ElementValue, nil
+		}
+	}
+
+	return nil, fmt.Errorf("element name not found")
+}
+
+func (i *IssuerSigned) IssuerSignedItems() (map[document.NameSpace][]IssuerSignedItem, error) {
+	items := map[document.NameSpace][]IssuerSignedItem{}
 
 	for ns, itemBytes := range i.NameSpaces {
 		for _, itemByte := range itemBytes {
@@ -128,7 +145,7 @@ func (i *IssuerSigned) IssuerSignedItems() (map[NameSpace][]IssuerSignedItem, er
 	return items, nil
 }
 
-type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes
+type IssuerNameSpaces map[document.NameSpace][]IssuerSignedItemBytes
 
 type IssuerSignedItemBytes cbor.RawMessage
 
@@ -152,19 +169,19 @@ func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
 }
 
 type IssuerSignedItem struct {
-	DigestID          uint                  `json:"digestID"`
-	Random            []byte                `json:"random"`
-	ElementIdentifier DataElementIdentifier `json:"elementIdentifier"`
-	ElementValue      DataElementValue      `json:"elementValue"`
+	DigestID          uint                       `json:"digestID"`
+	Random            []byte                     `json:"random"`
+	ElementIdentifier document.ElementIdentifier `json:"elementIdentifier"`
+	ElementValue      document.ElementValue      `json:"elementValue"`
 }
 
 type MobileSecurityObject struct {
-	Version         string        `json:"version"`
-	DigestAlgorithm string        `json:"digestAlgorithm"`
-	ValueDigests    ValueDigests  `json:"valueDigests"`
-	DeviceKeyInfo   DeviceKeyInfo `json:"deviceKeyInfo"`
-	DocType         DocType       `json:"docType"`
-	ValidityInfo    ValidityInfo  `json:"validityInfo"`
+	Version         string           `json:"version"`
+	DigestAlgorithm string           `json:"digestAlgorithm"`
+	ValueDigests    ValueDigests     `json:"valueDigests"`
+	DeviceKeyInfo   DeviceKeyInfo    `json:"deviceKeyInfo"`
+	DocType         document.DocType `json:"docType"`
+	ValidityInfo    ValidityInfo     `json:"validityInfo"`
 }
 
 func (m *MobileSecurityObject) DeviceKey() (*ecdsa.PublicKey, error) {
@@ -197,7 +214,7 @@ type KeyAuthorizations struct {
 
 type KeyInfo map[int]interface{}
 
-type ValueDigests map[NameSpace]DigestIDs
+type ValueDigests map[document.NameSpace]DigestIDs
 
 type DigestIDs map[DigestID]Digest
 
@@ -221,7 +238,7 @@ func (d *DeviceSigned) Alg() (cose.Algorithm, error) {
 	return d.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
 }
 
-func (d *DeviceSigned) DeviceAuthenticationBytes(docType DocType, sessionTranscript []byte) ([]byte, error) {
+func (d *DeviceSigned) DeviceAuthenticationBytes(docType document.DocType, sessionTranscript []byte) ([]byte, error) {
 	deviceAuthentication := []interface{}{
 		"DeviceAuthentication",
 		cbor.RawMessage(sessionTranscript),
@@ -241,9 +258,9 @@ func (d *DeviceSigned) DeviceAuthenticationBytes(docType DocType, sessionTranscr
 
 type DeviceNameSpacesBytes cbor.RawMessage
 
-type DeviceNameSpaces map[NameSpace]DeviceSignedItems
+type DeviceNameSpaces map[document.NameSpace]DeviceSignedItems
 
-type DeviceSignedItems map[DataElementIdentifier]DataElementValue
+type DeviceSignedItems map[document.ElementIdentifier]document.ElementValue
 
 type DeviceAuth struct {
 	// DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
@@ -252,11 +269,11 @@ type DeviceAuth struct {
 	DeviceMac       UntaggedSign1Message `json:"deviceMac"`
 }
 
-type DocumentError map[DocType]ErrorCode
+type DocumentError map[document.DocType]ErrorCode
 
-type Errors map[NameSpace]ErrorItems
+type Errors map[document.NameSpace]ErrorItems
 
-type ErrorItems map[DataElementIdentifier]ErrorCode
+type ErrorItems map[document.ElementIdentifier]ErrorCode
 
 type ErrorCode int
 

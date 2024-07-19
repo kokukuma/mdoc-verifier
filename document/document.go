@@ -15,6 +15,8 @@ var (
 
 type ElementIdentifier string
 
+type ElementValue interface{}
+
 var (
 	// Namespace: "org.iso.18013.5.1"
 	IsoFamilyName                  ElementIdentifier = "family_name"

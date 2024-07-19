@@ -5,7 +5,6 @@ import (
 	"crypto/ecdh"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -21,11 +20,12 @@ var (
 
 // https://developer.apple.com/documentation/passkit_apple_pay_and_wallet/wallet/verifying_wallet_identity_requests
 
+// これはserver側でいい
 type IdentityRequestApple struct {
 	Nonce string `json:"nonce"`
 }
 
-func loadPrivateKey(dataPath string) (*ecdh.PrivateKey, error) {
+func LoadPrivateKey(dataPath string) (*ecdh.PrivateKey, error) {
 	pemString, err := os.ReadFile(dataPath)
 	if err != nil {
 		return nil, err
@@ -49,8 +49,9 @@ func loadPrivateKey(dataPath string) (*ecdh.PrivateKey, error) {
 	return ecdhPriv, nil
 }
 
+// これもserver側でいい
 func BeginIdentityRequest(privKeyPath string) (*IdentityRequestApple, *protocol.SessionData, error) {
-	privKey, err := loadPrivateKey(privKeyPath)
+	privKey, err := LoadPrivateKey(privKeyPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -80,19 +81,15 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
+// 基本的にはこれがメイン
 func ParseDeviceResponse(
-	data string,
+	data []byte,
 	merchantID, temaID string,
 	privateKey *ecdh.PrivateKey,
 	nonceByte []byte) (*mdoc.DeviceResponse, []byte, error) {
 
-	decoded, err := b64.DecodeString(data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
-	}
-
 	var claims HPKEEnvelope
-	if err := cbor.Unmarshal(decoded, &claims); err != nil {
+	if err := cbor.Unmarshal(data, &claims); err != nil {
 		return nil, nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
 	}
 
@@ -114,8 +111,6 @@ func ParseDeviceResponse(
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}
-
-	fmt.Println(hex.EncodeToString(plaintext))
 
 	topics := struct {
 		Identity mdoc.DeviceResponse `json:"identity"`

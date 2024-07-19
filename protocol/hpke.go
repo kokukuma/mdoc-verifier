@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"crypto/ecdh"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/cisco/go-hpke"
@@ -33,9 +32,6 @@ func DecryptHPKE(data, pkEM, info []byte, privKey *ecdh.PrivateKey) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting ciphertext: %v", err)
 	}
-
-	// Print or process the decrypted plaintext as needed
-	fmt.Printf("Decrypted text: %s\n", base64.URLEncoding.EncodeToString(plainText))
 
 	return plainText, nil
 }

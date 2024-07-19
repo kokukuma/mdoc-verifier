@@ -9,6 +9,22 @@ import (
 	"strings"
 )
 
+// TODO: これらはutilに移動?
+
+func GetRootCertificate(path string) (*x509.CertPool, error) {
+	pem, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read file: %s, err: %v", path, err)
+	}
+
+	roots := x509.NewCertPool()
+
+	if ok := roots.AppendCertsFromPEM(pem); !ok {
+		return nil, fmt.Errorf("failed to load pem")
+	}
+	return roots, nil
+}
+
 func GetRootCertificates(path string) (*x509.CertPool, error) {
 	pems, err := loadCertificatesFromDirectory(path)
 	if err != nil {
@@ -39,6 +55,8 @@ func loadCertificatesFromDirectory(dirPath string) (map[string][]byte, error) {
 		if file.IsDir() {
 			continue // skip directories
 		}
+
+		// TODO: これは微妙
 		if strings.HasSuffix(file.Name(), ".pem") {
 			filePath := filepath.Join(dirPath, file.Name())
 			data, err := os.ReadFile(filePath)

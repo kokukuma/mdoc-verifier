@@ -17,13 +17,13 @@ import (
 )
 
 func ParseDeviceResponse(
-	vpData *OpenID4VPData,
+	ar *AuthorizationResponse,
 	origin, clientID string,
 	nonceByte []byte,
 	sessTransType string,
 ) (*mdoc.DeviceResponse, []byte, error) {
 
-	decoded, err := base64.URLEncoding.DecodeString(vpData.VPToken)
+	decoded, err := base64.URLEncoding.DecodeString(ar.VPToken)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode base64")
 	}
@@ -39,7 +39,7 @@ func ParseDeviceResponse(
 	case "browser":
 		sessTrans, err = generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
 	case "eudiw":
-		sessTrans, err = generateOID4VPSessionTranscript(nonceByte, clientID, origin, vpData.APU)
+		sessTrans, err = generateOID4VPSessionTranscript(nonceByte, clientID, origin, ar.APU)
 	default:
 		return nil, nil, errors.New("unsupported session transcript type")
 	}
@@ -50,15 +50,15 @@ func ParseDeviceResponse(
 	return &claims, sessTrans, nil
 }
 
-func ParseVPTokenResponse(data string) (*OpenID4VPData, error) {
-	var msg OpenID4VPData
+func ParseVPTokenResponse(data string) (*AuthorizationResponse, error) {
+	var msg AuthorizationResponse
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
 	return &msg, nil
 }
 
-func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*OpenID4VPData, error) {
+func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*AuthorizationResponse, error) {
 	response, state, err := extractResponseAndState(r)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*OpenID4VPDa
 		return nil, err
 	}
 
-	var msg OpenID4VPData
+	var msg AuthorizationResponse
 	if err := json.Unmarshal(decrypted, &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
