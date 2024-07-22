@@ -10,6 +10,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 func getPath(fileName string) (string, error) {
@@ -54,7 +55,7 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 		log.Fatal("3", err)
 	}
 
-	roots, err := GetRootCertificates(rootCrtDataPath)
+	roots, err := pki.GetRootCertificates(rootCrtDataPath)
 	if err != nil {
 		log.Fatal("4", err)
 	}

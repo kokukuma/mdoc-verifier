@@ -14,7 +14,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/document"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/veraison/go-cose"
 )
 
@@ -165,7 +165,7 @@ func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return protocol.Digest(v, alg), nil
+	return hash.Digest(v, alg), nil
 }
 
 type IssuerSignedItem struct {

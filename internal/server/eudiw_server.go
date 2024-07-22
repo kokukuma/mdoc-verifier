@@ -11,17 +11,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
-	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
-	nonce, err := protocol.CreateNonce()
+	nonce, err := CreateNonce()
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	sessionData := &protocol.SessionData{
+	sessionData := &SessionData{
 		Nonce: nonce,
 	}
 

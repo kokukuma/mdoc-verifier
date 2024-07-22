@@ -12,7 +12,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"gopkg.in/square/go-jose.v2"
 )
 
@@ -37,7 +37,7 @@ func ParseDeviceResponse(
 	var sessTrans []byte
 	switch sessTransType {
 	case "browser":
-		sessTrans, err = generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest([]byte(clientID), "SHA-256"))
+		sessTrans, err = generateBrowserSessionTranscript(nonceByte, origin, hash.Digest([]byte(clientID), "SHA-256"))
 	case "eudiw":
 		sessTrans, err = generateOID4VPSessionTranscript(nonceByte, clientID, origin, ar.APU)
 	default:

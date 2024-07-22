@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
+	"github.com/kokukuma/mdoc-verifier/pkg/hpke"
 )
 
 var (
@@ -17,29 +17,6 @@ var (
 )
 
 // https://github.com/openwallet-foundation-labs/identity-credential/blob/da5991c34f4d3356606e68b9376419c7f9c62cb3/appholder/src/main/java/com/android/identity/wallet/GetCredentialActivity.kt#L163
-
-type IdentityRequestPreview struct {
-	Selector        Selector `json:"selector"`
-	Nonce           string   `json:"nonce"`
-	ReaderPublicKey string   `json:"readerPublicKey"`
-}
-
-type Selector struct {
-	Format    []string  `json:"format"`
-	Retention Retention `json:"retention"`
-	DocType   string    `json:"doctype"`
-	Fields    []Field   `json:"fields"`
-}
-
-type Field struct {
-	Namespace      doc.NameSpace         `json:"namespace"`
-	Name           doc.ElementIdentifier `json:"name"`
-	IntentToRetain bool                  `json:"intentToRetain"`
-}
-
-type Retention struct {
-	Days int `json:"days"`
-}
 
 type PreviewData struct {
 	Token string `json:"token"`
@@ -75,12 +52,12 @@ func ParseDeviceResponse(
 	}
 
 	// Decrypt the ciphertext
-	sessionTranscript, err := generateBrowserSessionTranscript(nonceByte, origin, protocol.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
+	sessionTranscript, err := generateBrowserSessionTranscript(nonceByte, origin, hash.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
 	}
 
-	plaintext, err := protocol.DecryptHPKE(claims.CipherText, claims.EncryptionParameters.PKEM, sessionTranscript, privateKey)
+	plaintext, err := hpke.DecryptHPKE(claims.CipherText, claims.EncryptionParameters.PKEM, sessionTranscript, privateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error decryptAndroidHPKEV1: %v", err)
 	}

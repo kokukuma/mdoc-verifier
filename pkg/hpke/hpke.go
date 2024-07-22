@@ -1,4 +1,4 @@
-package protocol
+package hpke
 
 import (
 	"crypto/ecdh"

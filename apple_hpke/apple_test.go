@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
+	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 var (
@@ -48,7 +49,7 @@ func loadPrivateKeyForTest() (*ecdh.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return LoadPrivateKey(dataPath)
+	return pki.LoadPrivateKey(dataPath)
 }
 
 func TestParseDeviceResponse(t *testing.T) {
@@ -98,15 +99,15 @@ func TestGenerateAppleSessionTranscript(t *testing.T) {
 	publicKeyByte := privKey.PublicKey().Bytes()
 
 	t.Run("generateAppleSessionTranscript", func(t *testing.T) {
-		actual, err := generateAppleSessionTranscript(merchantID, teamID, nonceByte, protocol.Digest(publicKeyByte, "SHA-256"))
+		actual, err := generateAppleSessionTranscript(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if sessionTranscript != hex.EncodeToString(actual) {
 			t.Fatalf("info is unmatched: %v != %v", sessionTranscript, string(actual))
 		}
-		if !bytes.Equal(infoHashByte, protocol.Digest(actual, "SHA-256")) {
-			t.Fatalf("infohash is unmatched: %v != %v", infoHashByte, protocol.Digest(actual, "SHA-256"))
+		if !bytes.Equal(infoHashByte, hash.Digest(actual, "SHA-256")) {
+			t.Fatalf("infohash is unmatched: %v != %v", infoHashByte, hash.Digest(actual, "SHA-256"))
 		}
 	})
 }
@@ -122,7 +123,7 @@ func TestPublickey(t *testing.T) {
 	publicKeyByte := privKey.PublicKey().Bytes()
 
 	pubByteSample, _ := hex.DecodeString("b2c00f06b2df645691174f1331ade35141f17e19b3021d07560b4a71fc61818c")
-	if !bytes.Equal(pubByteSample, protocol.Digest(publicKeyByte, "SHA-256")) {
+	if !bytes.Equal(pubByteSample, hash.Digest(publicKeyByte, "SHA-256")) {
 		t.Fatalf("info is unmatched")
 	}
 }

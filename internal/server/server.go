@@ -15,13 +15,14 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
+	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 	"github.com/kokukuma/mdoc-verifier/preview_hpke"
-	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 var (
@@ -39,7 +40,7 @@ func NewServer() *Server {
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
 	}
-	roots, err = mdoc.GetRootCertificates(filepath.Join(dir, "internal", "server", "pems"))
+	roots, err = pki.GetRootCertificates(filepath.Join(dir, "internal", "server", "pems"))
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
 	}
@@ -106,20 +107,20 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	spew.Dump(req)
 
 	var idReq interface{}
-	var sessionData *protocol.SessionData
+	var sessionData *SessionData
 	var err error
 
 	switch req.Protocol {
 	case "preview":
 		// ageOver21, _ := mdoc.AgeOver(21) // only 21 works now...why..
 		// spew.Dump(ageOver21)
-		idReq, sessionData, err = preview_hpke.BeginIdentityRequest(
-			preview_hpke.WithFormat([]string{"mdoc"}),
-			preview_hpke.WithDocType("org.iso.18013.5.1.mDL"),
-			preview_hpke.AddField(doc.ISO1801351, doc.IsoFamilyName, false),
-			preview_hpke.AddField(doc.ISO1801351, doc.IsoGivenName, false),
-			preview_hpke.AddField(doc.ISO1801351, doc.IsoDocumentNumber, false),
-			preview_hpke.AddField(doc.ISO1801351, doc.IsoBirthDate, false),
+		idReq, sessionData, err = BeginIdentityRequest(
+			WithFormat([]string{"mdoc"}),
+			WithDocType("org.iso.18013.5.1.mDL"),
+			AddField(doc.ISO1801351, doc.IsoFamilyName, false),
+			AddField(doc.ISO1801351, doc.IsoGivenName, false),
+			AddField(doc.ISO1801351, doc.IsoDocumentNumber, false),
+			AddField(doc.ISO1801351, doc.IsoBirthDate, false),
 			// preview_hpke.AddField(mdoc.IssueDate),
 			// preview_hpke.AddField(mdoc.IssuingCountry),
 			// preview_hpke.AddField(ageOver21),
@@ -136,10 +137,22 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "apple":
-		idReq, sessionData, err = apple_hpke.BeginIdentityRequest(applePrivateKeyPath)
+		privKey, err := pki.LoadPrivateKey(applePrivateKeyPath)
+		if err != nil {
+			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
+			return
+		}
+		nonce, err := CreateNonce()
 		if err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: apple: %v", err), http.StatusBadRequest)
 			return
+		}
+		idReq = credential_data.IdentityRequest{
+			Nonce: nonce.String(),
+		}
+		sessionData = &SessionData{
+			Nonce:      nonce,
+			PrivateKey: privKey,
 		}
 	}
 	id, err := s.sessions.SaveIdentitySession(sessionData)

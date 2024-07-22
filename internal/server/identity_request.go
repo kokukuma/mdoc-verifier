@@ -6,11 +6,10 @@ import (
 	"fmt"
 
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
-	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
-func BeginIdentityRequestOpenID4VP(clientID string) (*openid4vp.AuthorizationRequest, *protocol.SessionData, error) {
-	nonce, err := protocol.CreateNonce()
+func BeginIdentityRequestOpenID4VP(clientID string) (*openid4vp.AuthorizationRequest, *SessionData, error) {
+	nonce, err := CreateNonce()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -32,7 +31,7 @@ func BeginIdentityRequestOpenID4VP(clientID string) (*openid4vp.AuthorizationReq
 		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
 	}
 
-	return idReq, &protocol.SessionData{
+	return idReq, &SessionData{
 		Nonce:      nonce,
 		PrivateKey: privKey,
 	}, nil

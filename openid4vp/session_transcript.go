@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 )
 
 // TODO: session transcript: 9.1.5.1 Session transcript
@@ -75,8 +75,8 @@ func generateOID4VPSessionTranscript(nonce []byte, clientID, responseURI, apu st
 	if err != nil {
 		return nil, err
 	}
-	clientIdHash := protocol.Digest(clientIdToHash, "SHA-256")
-	responseURIHash := protocol.Digest(responseUriToHash, "SHA-256")
+	clientIdHash := hash.Digest(clientIdToHash, "SHA-256")
+	responseURIHash := hash.Digest(responseUriToHash, "SHA-256")
 
 	// Create the final CBOR array
 	oid4vpHandover := []interface{}{

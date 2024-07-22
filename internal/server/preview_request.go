@@ -1,16 +1,16 @@
-package preview_hpke
+package server
 
 import (
 	"crypto/ecdh"
 	"crypto/rand"
 	"fmt"
 
+	"github.com/kokukuma/mdoc-verifier/credential_data"
 	doc "github.com/kokukuma/mdoc-verifier/document"
-	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
-func BeginIdentityRequest(options ...IdentityRequestOption) (*IdentityRequestPreview, *protocol.SessionData, error) {
-	nonce, err := protocol.CreateNonce()
+func BeginIdentityRequest(options ...IdentityRequestOption) (*credential_data.IdentityRequest, *SessionData, error) {
+	nonce, err := CreateNonce()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -22,12 +22,12 @@ func BeginIdentityRequest(options ...IdentityRequestOption) (*IdentityRequestPre
 		return nil, nil, fmt.Errorf("failed to generateKey: %v", err)
 	}
 
-	idReq := &IdentityRequestPreview{
-		Selector: Selector{
+	idReq := &credential_data.IdentityRequest{
+		Selector: credential_data.Selector{
 			Format:    []string{"mdoc"},
-			Retention: Retention{Days: 90},
+			Retention: credential_data.Retention{Days: 90},
 			DocType:   "org.iso.18013.5.1.mDL",
-			Fields:    []Field{},
+			Fields:    []credential_data.Field{},
 		},
 		Nonce:           nonce.String(),
 		ReaderPublicKey: b64.EncodeToString(privKey.PublicKey().Bytes()),
@@ -37,35 +37,35 @@ func BeginIdentityRequest(options ...IdentityRequestOption) (*IdentityRequestPre
 		option(idReq)
 	}
 
-	return idReq, &protocol.SessionData{
+	return idReq, &SessionData{
 		Nonce:      nonce,
 		PrivateKey: privKey,
 	}, nil
 }
 
-type IdentityRequestOption func(*IdentityRequestPreview)
+type IdentityRequestOption func(*credential_data.IdentityRequest)
 
 func WithRetention(retention int) IdentityRequestOption {
-	return func(ir *IdentityRequestPreview) {
-		ir.Selector.Retention = Retention{Days: retention}
+	return func(ir *credential_data.IdentityRequest) {
+		ir.Selector.Retention = credential_data.Retention{Days: retention}
 	}
 }
 
 func WithFormat(format []string) IdentityRequestOption {
-	return func(ir *IdentityRequestPreview) {
+	return func(ir *credential_data.IdentityRequest) {
 		ir.Selector.Format = format
 	}
 }
 
 func WithDocType(docType string) IdentityRequestOption {
-	return func(ir *IdentityRequestPreview) {
+	return func(ir *credential_data.IdentityRequest) {
 		ir.Selector.DocType = docType
 	}
 }
 
 func AddField(ns doc.NameSpace, id doc.ElementIdentifier, retain bool) IdentityRequestOption {
-	return func(ir *IdentityRequestPreview) {
-		ir.Selector.Fields = append(ir.Selector.Fields, Field{
+	return func(ir *credential_data.IdentityRequest) {
+		ir.Selector.Fields = append(ir.Selector.Fields, credential_data.Field{
 			Namespace:      ns,
 			Name:           id,
 			IntentToRetain: retain,

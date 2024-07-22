@@ -11,6 +11,7 @@ import (
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
+	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 var (
@@ -39,19 +40,15 @@ func main() {
 		panic("failed to load sample data: " + err.Error())
 	}
 
-	// TODO: これはcertUtil的な
-	roots, err := mdoc.GetRootCertificate(rootCerts)
+	roots, err := pki.GetRootCertificate(rootCerts)
 	if err != nil {
 		panic("failed to load rootCert: " + err.Error())
 	}
 
-	// TODO: これはcertUtil的な
-	privKey, err := apple_hpke.LoadPrivateKey(applePrivateKeyPath)
+	privKey, err := pki.LoadPrivateKey(applePrivateKeyPath)
 	if err != nil {
 		panic("failed to load private key: " + err.Error())
 	}
-
-	// TODO: もっと隠蔽したほうがいいか?
 
 	// deviceResponseのparse
 	devResp, sessTrans, err := apple_hpke.ParseDeviceResponse(data, merchantID, teamID, privKey, nonce)

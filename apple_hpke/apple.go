@@ -3,15 +3,13 @@ package apple_hpke
 import (
 	"bytes"
 	"crypto/ecdh"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
-	"os"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/protocol"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
+	"github.com/kokukuma/mdoc-verifier/pkg/hpke"
 )
 
 var (
@@ -19,54 +17,6 @@ var (
 )
 
 // https://developer.apple.com/documentation/passkit_apple_pay_and_wallet/wallet/verifying_wallet_identity_requests
-
-// これはserver側でいい
-type IdentityRequestApple struct {
-	Nonce string `json:"nonce"`
-}
-
-func LoadPrivateKey(dataPath string) (*ecdh.PrivateKey, error) {
-	pemString, err := os.ReadFile(dataPath)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode([]byte(pemString))
-	if block == nil || block.Type != "EC PRIVATE KEY" {
-		return nil, fmt.Errorf("failed to decode PEM block containing private key")
-	}
-
-	ecdsaPriv, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	curve := ecdh.P256()
-	ecdhPriv, err := curve.NewPrivateKey(ecdsaPriv.D.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("Error converting to ECDH private key: %v", err)
-	}
-	return ecdhPriv, nil
-}
-
-// これもserver側でいい
-func BeginIdentityRequest(privKeyPath string) (*IdentityRequestApple, *protocol.SessionData, error) {
-	privKey, err := LoadPrivateKey(privKeyPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	nonce, err := protocol.CreateNonce()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &IdentityRequestApple{
-			Nonce: nonce.String(),
-		}, &protocol.SessionData{
-			Nonce:      nonce,
-			PrivateKey: privKey,
-		}, nil
-}
 
 type HPKEEnvelope struct {
 	Algorithm string     `json:"algorithm"`
@@ -94,20 +44,20 @@ func ParseDeviceResponse(
 	}
 
 	// Decrypt the ciphertext
-	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, protocol.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
+	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, hash.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
 	}
 
-	if !bytes.Equal(protocol.Digest(info, "SHA-256"), claims.Params.InfoHash) {
-		return nil, nil, fmt.Errorf("infoHash is not match: %v != %v", protocol.Digest(info, "SHA-256"), claims.Params.InfoHash)
+	if !bytes.Equal(hash.Digest(info, "SHA-256"), claims.Params.InfoHash) {
+		return nil, nil, fmt.Errorf("infoHash is not match: %v != %v", hash.Digest(info, "SHA-256"), claims.Params.InfoHash)
 	}
 
-	if !bytes.Equal(protocol.Digest(privateKey.PublicKey().Bytes(), "SHA-256"), claims.Params.PkRHash) {
+	if !bytes.Equal(hash.Digest(privateKey.PublicKey().Bytes(), "SHA-256"), claims.Params.PkRHash) {
 		return nil, nil, fmt.Errorf("PkRHash is not match")
 	}
 
-	plaintext, err := protocol.DecryptHPKE(claims.Data, claims.Params.PkEM, info, privateKey)
+	plaintext, err := hpke.DecryptHPKE(claims.Data, claims.Params.PkEM, info, privateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}

@@ -1,4 +1,4 @@
-package mdoc
+package pki
 
 import (
 	"crypto/x509"
@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-// TODO: これらはutilに移動?
 
 func GetRootCertificate(path string) (*x509.CertPool, error) {
 	pem, err := os.ReadFile(path)

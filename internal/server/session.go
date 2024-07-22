@@ -1,11 +1,11 @@
 package server
 
 import (
+	"crypto/ecdh"
 	"errors"
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/kokukuma/mdoc-verifier/protocol"
 )
 
 type Sessions struct {
@@ -15,7 +15,7 @@ type Sessions struct {
 
 // TODO: Sessionは全部こっち側に持ってくる
 
-func (s *Sessions) SaveIdentitySession(data *protocol.SessionData) (string, error) {
+func (s *Sessions) SaveIdentitySession(data *SessionData) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -46,7 +46,7 @@ func (s *Sessions) GetVerifyResponse(id string) (*VerifyResponse, error) {
 	return session.VerifyResponse, nil
 }
 
-func (s *Sessions) GetIdentitySession(id string) (*protocol.SessionData, error) {
+func (s *Sessions) GetIdentitySession(id string) (*SessionData, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -65,6 +65,19 @@ func NewSessions() *Sessions {
 
 type Session struct {
 	id             string
-	data           *protocol.SessionData
+	data           *SessionData
 	VerifyResponse *VerifyResponse
+}
+
+type SessionData struct {
+	Nonce      Nonce            `json:"challenge"`
+	PrivateKey *ecdh.PrivateKey `json:"private_key"`
+}
+
+func (s *SessionData) GetNonceByte() []byte {
+	return []byte(s.Nonce)
+}
+
+func (s *SessionData) GetPrivateKey() *ecdh.PrivateKey {
+	return s.PrivateKey
 }
