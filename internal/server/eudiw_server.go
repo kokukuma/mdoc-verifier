@@ -9,6 +9,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
 )
@@ -103,41 +104,49 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	devResp, sessTrans, err := openid4vp.ParseDeviceResponse(ar, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", serverDomain, []byte(session.Nonce.String()), "eudiw")
+	// 1. get session_transcript
+	sessTrans, err := openid4vp.SessionTranscriptOID4VP([]byte(session.Nonce.String()), serverDomain, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", ar.APU)
 	if err != nil {
-		spew.Dump(err)
+		jsonErrorResponse(w, fmt.Errorf("failed to get sessTrans: %v", err), http.StatusBadRequest)
+		return
 	}
-
-	spew.Dump(devResp)
 	spew.Dump(sessTrans)
 
-	skipVerification := false
+	// 3. parse mdoc device response
+	devResp, err := openid4vp.ParseDeviceResponse(ar)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to parse device responsee: %v", err), http.StatusBadRequest)
+		return
+	}
+	spew.Dump(devResp)
 
+	// 4. verify mdoc device response
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
-		if !skipVerification {
-			if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
-				spew.Dump(err)
-				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
-				return
-			}
-		}
-
-		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
-		if err != nil {
+		if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
 			spew.Dump(err)
-			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)
+			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		for ns, items := range itemsmap {
-			for _, item := range items {
-				resp.Elements = append(resp.Elements, Element{
-					NameSpace:  ns,
-					Identifier: item.ElementIdentifier,
-					Value:      item.ElementValue,
-				})
+		// element取得
+		for _, elemName := range []document.ElementIdentifier{
+			document.IsoFamilyName,
+			document.IsoGivenName,
+			document.IsoBirthDate,
+			document.IsoDocumentNumber,
+		} {
+			elemValue, err := doc.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
+			if err != nil {
+				jsonErrorResponse(w, fmt.Errorf("failed to get data: %v", err), http.StatusBadRequest)
+				return
 			}
+			resp.Elements = append(resp.Elements, Element{
+				NameSpace:  document.ISO1801351,
+				Identifier: elemName,
+				Value:      elemValue,
+			})
+			spew.Dump(elemName, elemValue)
 		}
 	}
 	s.sessions.AddVerifyResponse(ar.State, resp)

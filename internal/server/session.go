@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -86,6 +87,10 @@ func (s *Session) GetNonceByte() []byte {
 
 func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
 	return s.PrivateKey
+}
+
+func (s *Session) GetPublicKeyHash() []byte {
+	return hash.Digest(s.PrivateKey.PublicKey().Bytes(), "SHA-256")
 }
 
 func newSession(privKeyPath string) (*Session, error) {

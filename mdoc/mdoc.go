@@ -123,6 +123,9 @@ func (i *IssuerSigned) GetElementValue(namespace document.NameSpace, elementIden
 			return nil, err
 		}
 		if item.ElementIdentifier == elementIdentifier {
+			if tag, ok := item.ElementValue.(cbor.Tag); ok {
+				return tag.Content, nil
+			}
 			return item.ElementValue, nil
 		}
 	}

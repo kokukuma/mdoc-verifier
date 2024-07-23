@@ -31,35 +31,38 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
-// 基本的にはこれがメイン
-func ParseDeviceResponse(
-	data []byte,
-	merchantID, temaID string,
-	privateKey *ecdh.PrivateKey,
-	nonceByte []byte) (*mdoc.DeviceResponse, []byte, error) {
+func ParseHPKEEnvelope(data string) (*HPKEEnvelope, error) {
+	decoded, err := b64.DecodeString(data)
+	if err != nil {
+		return nil, err
+	}
 
 	var claims HPKEEnvelope
-	if err := cbor.Unmarshal(data, &claims); err != nil {
-		return nil, nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
+	if err := cbor.Unmarshal(decoded, &claims); err != nil {
+		return nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
 	}
 
-	// Decrypt the ciphertext
-	info, err := generateAppleSessionTranscript(merchantID, temaID, nonceByte, hash.Digest(privateKey.PublicKey().Bytes(), "SHA-256"))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create aad: %v", err)
-	}
+	return &claims, nil
+}
 
-	if !bytes.Equal(hash.Digest(info, "SHA-256"), claims.Params.InfoHash) {
-		return nil, nil, fmt.Errorf("infoHash is not match: %v != %v", hash.Digest(info, "SHA-256"), claims.Params.InfoHash)
+// 基本的にはこれがメイン
+func ParseDeviceResponse(
+	claims *HPKEEnvelope,
+	privateKey *ecdh.PrivateKey,
+	sessTrans []byte,
+) (*mdoc.DeviceResponse, error) {
+
+	if !bytes.Equal(hash.Digest(sessTrans, "SHA-256"), claims.Params.InfoHash) {
+		return nil, fmt.Errorf("infoHash is not match: %v != %v", hash.Digest(sessTrans, "SHA-256"), claims.Params.InfoHash)
 	}
 
 	if !bytes.Equal(hash.Digest(privateKey.PublicKey().Bytes(), "SHA-256"), claims.Params.PkRHash) {
-		return nil, nil, fmt.Errorf("PkRHash is not match")
+		return nil, fmt.Errorf("PkRHash is not match")
 	}
 
-	plaintext, err := hpke.DecryptHPKE(claims.Data, claims.Params.PkEM, info, privateKey)
+	plaintext, err := hpke.DecryptHPKE(claims.Data, claims.Params.PkEM, sessTrans, privateKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error DecryptHPKE: %v", err)
+		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}
 
 	topics := struct {
@@ -67,8 +70,8 @@ func ParseDeviceResponse(
 	}{}
 
 	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
-		return nil, nil, fmt.Errorf("Error unmarshal cbor as Identity: %v", err)
+		return nil, fmt.Errorf("Error unmarshal cbor as Identity: %v", err)
 	}
 
-	return &topics.Identity, info, nil
+	return &topics.Identity, nil
 }

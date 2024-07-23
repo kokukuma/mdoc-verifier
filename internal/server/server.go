@@ -19,6 +19,7 @@ import (
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 	"github.com/kokukuma/mdoc-verifier/preview_hpke"
 )
@@ -146,49 +147,56 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var devResp *mdoc.DeviceResponse
-	var sessTrans []byte
 	var skipVerification bool
 
-	// // 1. get session_transcript
-	// sessTrans, err := session.GetSessionTranscript("protocol", req.Origin)
-	//
-	// // 2. prase request
-	// parsedReq, err := parseVerifyRequest(req.Data) // AR/HPKE/?
-	//
-	// // 3. parse mdoc device response
-	// devResp, err := ParseDeviceResponse(parsedReq, session)
-	//
-	// // 4. verify mdoc device response
-
+	// 1. get session_transcript
+	var sessTrans []byte
 	switch req.Protocol {
 	case "openid4vp":
-		vpData, err := openid4vp.ParseVPTokenResponse(req.Data)
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
-			return
-		}
-		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(vpData, req.Origin, "digital-credentials.dev", session.GetNonceByte(), "browser")
+		sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
 	case "preview":
-		devResp, sessTrans, err = preview_hpke.ParseDeviceResponse(req.Data, req.Origin, session.GetPrivateKey(), session.GetNonceByte())
+		sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
 	case "apple":
-		// Appleのシミュレータが返す値が不完全で検証できないので一旦スキップ
-		// * devieSignature不完全な状態で返してくる。
-		// * issureAuthのheaderも入ってない
-		skipVerification = true
-		decoded, err := b64.DecodeString(req.Data)
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
-			return
-		}
-		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse(decoded, merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())
+		sessTrans, err = apple_hpke.SessionTranscript(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
 	}
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to ParseDeviceResponse: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to get session transcript: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 2. prase request
+	var prasedReq interface{}
+	switch req.Protocol {
+	case "openid4vp":
+		prasedReq, err = openid4vp.ParseVPTokenResponse(req.Data)
+	case "preview":
+		prasedReq, err = preview_hpke.ParseTokenResponse(req.Data)
+	case "apple":
+		prasedReq, err = apple_hpke.ParseHPKEEnvelope(req.Data)
+	}
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to parse reqest: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 3. parse mdoc device response
+	var devResp *mdoc.DeviceResponse
+	switch req.Protocol {
+	case "openid4vp":
+		devResp, err = openid4vp.ParseDeviceResponse(prasedReq.(*openid4vp.AuthorizationResponse))
+	case "preview":
+		devResp, err = preview_hpke.ParseDeviceResponse(prasedReq.(*preview_hpke.PreviewData), session.GetPrivateKey(), sessTrans)
+	case "apple":
+		skipVerification = true
+		devResp, err = apple_hpke.ParseDeviceResponse(prasedReq.(*apple_hpke.HPKEEnvelope), session.GetPrivateKey(), sessTrans)
+	}
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to parse mdoc device response: %v", err), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(devResp)
 
+	// 4. verify mdoc device response
 	var resp VerifyResponse
 	for _, doc := range devResp.Documents {
 		if !skipVerification {
@@ -207,8 +215,8 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		} {
 			elemValue, err := doc.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
 			if err != nil {
-				jsonErrorResponse(w, fmt.Errorf("failed to get data: %v", err), http.StatusBadRequest)
-				return
+				fmt.Println(err)
+				continue
 			}
 			resp.Elements = append(resp.Elements, Element{
 				NameSpace:  document.ISO1801351,

@@ -8,7 +8,7 @@ import (
 
 const APPLE_HANDOVER_V1 = "AppleIdentityPresentment_1.0"
 
-func generateAppleSessionTranscript(merchantID, temaID string, nonce, requesterIdHash []byte) ([]byte, error) {
+func SessionTranscript(merchantID, temaID string, nonce, requesterIdHash []byte) ([]byte, error) {
 	// Create the final CBOR array
 	appleHandover := []interface{}{
 		nil, // DeviceEngagementBytes

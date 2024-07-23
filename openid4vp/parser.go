@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,42 +11,23 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"gopkg.in/square/go-jose.v2"
 )
 
 func ParseDeviceResponse(
 	ar *AuthorizationResponse,
-	origin, clientID string,
-	nonceByte []byte,
-	sessTransType string,
-) (*mdoc.DeviceResponse, []byte, error) {
+) (*mdoc.DeviceResponse, error) {
 
 	decoded, err := base64.URLEncoding.DecodeString(ar.VPToken)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode base64")
+		return nil, fmt.Errorf("failed to decode base64")
 	}
 
 	var claims mdoc.DeviceResponse
 	if err := cbor.Unmarshal(decoded, &claims); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse data as JSON")
+		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
-
-	// For EUDIW
-	var sessTrans []byte
-	switch sessTransType {
-	case "browser":
-		sessTrans, err = generateBrowserSessionTranscript(nonceByte, origin, hash.Digest([]byte(clientID), "SHA-256"))
-	case "eudiw":
-		sessTrans, err = generateOID4VPSessionTranscript(nonceByte, clientID, origin, ar.APU)
-	default:
-		return nil, nil, errors.New("unsupported session transcript type")
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create session transcript: %v", err)
-	}
-
-	return &claims, sessTrans, nil
+	return &claims, nil
 }
 
 func ParseVPTokenResponse(data string) (*AuthorizationResponse, error) {
