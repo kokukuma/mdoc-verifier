@@ -16,7 +16,7 @@ type Sessions struct {
 	sessions map[string]*Session
 }
 
-func (s *Sessions) SaveSession(data *Session) (string, error) {
+func (s *Sessions) save(data *Session) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -27,11 +27,11 @@ func (s *Sessions) SaveSession(data *Session) (string, error) {
 }
 
 func (s *Sessions) NewSession(privKeyPath string) (*Session, error) {
-	session, err := NewSession(privKeyPath)
+	session, err := newSession(privKeyPath)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.SaveSession(session); err != nil {
+	if _, err := s.save(session); err != nil {
 		return nil, err
 	}
 	return session, nil
@@ -56,7 +56,7 @@ func (s *Sessions) GetVerifyResponse(id string) (*VerifyResponse, error) {
 	return session.VerifyResponse, nil
 }
 
-func (s *Sessions) GetIdentitySession(id string) (*Session, error) {
+func (s *Sessions) GetSession(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -84,7 +84,11 @@ func (s *Session) GetNonceByte() []byte {
 	return []byte(s.Nonce)
 }
 
-func NewSession(privKeyPath string) (*Session, error) {
+func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
+	return s.PrivateKey
+}
+
+func newSession(privKeyPath string) (*Session, error) {
 	nonce, err := CreateNonce()
 	if err != nil {
 		return nil, err
@@ -111,8 +115,4 @@ func NewSession(privKeyPath string) (*Session, error) {
 		Nonce:      nonce,
 		PrivateKey: privKey,
 	}, nil
-}
-
-func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
-	return s.PrivateKey
 }

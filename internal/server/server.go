@@ -140,9 +140,9 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	session, err := s.sessions.GetIdentitySession(req.SessionID)
+	session, err := s.sessions.GetSession(req.SessionID)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	case "openid4vp":
 		vpData, err := openid4vp.ParseVPTokenResponse(req.Data)
 		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+			jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 			return
 		}
 		devResp, sessTrans, err = openid4vp.ParseDeviceResponse(vpData, req.Origin, "digital-credentials.dev", session.GetNonceByte(), "browser")
@@ -178,7 +178,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		skipVerification = true
 		decoded, err := b64.DecodeString(req.Data)
 		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+			jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 			return
 		}
 		devResp, sessTrans, err = apple_hpke.ParseDeviceResponse(decoded, merchantID, teamID, session.GetPrivateKey(), session.GetNonceByte())

@@ -14,17 +14,7 @@ import (
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
-	nonce, err := CreateNonce()
-	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	session := &Session{
-		Nonce: nonce,
-	}
-
-	id, err := s.sessions.SaveSession(session)
+	session, err := s.sessions.NewSession("")
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
@@ -34,7 +24,7 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	jar := openid4vp.JWTSecuredAuthorizeRequest{
 		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
 		ClientID:          serverDomain,
-		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, id),
+		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, session.ID),
 	}
 
 	jsonResponse(w, struct {
@@ -47,9 +37,9 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sessionID := vars["sessionid"]
-	session, err := s.sessions.GetIdentitySession(sessionID)
+	session, err := s.sessions.GetSession(sessionID)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -107,9 +97,9 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	}
 	spew.Dump(ar)
 
-	session, err := s.sessions.GetIdentitySession(ar.State)
+	session, err := s.sessions.GetSession(ar.State)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -173,7 +163,7 @@ func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.sessions.GetVerifyResponse(req.SessionID)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
