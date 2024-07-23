@@ -15,9 +15,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
-	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
-	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
@@ -100,11 +98,9 @@ type Element struct {
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := GetRequest{}
 	if err := parseJSON(r, &req); err != nil {
-
 		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(req)
 
 	var idReq interface{}
 	var sessionData *SessionData
@@ -112,47 +108,22 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Protocol {
 	case "preview":
-		// ageOver21, _ := mdoc.AgeOver(21) // only 21 works now...why..
-		// spew.Dump(ageOver21)
-		idReq, sessionData, err = BeginIdentityRequest(
-			WithFormat([]string{"mdoc"}),
-			WithDocType("org.iso.18013.5.1.mDL"),
-			AddField(doc.ISO1801351, doc.IsoFamilyName, false),
-			AddField(doc.ISO1801351, doc.IsoGivenName, false),
-			AddField(doc.ISO1801351, doc.IsoDocumentNumber, false),
-			AddField(doc.ISO1801351, doc.IsoBirthDate, false),
-			// preview_hpke.AddField(mdoc.IssueDate),
-			// preview_hpke.AddField(mdoc.IssuingCountry),
-			// preview_hpke.AddField(ageOver21),
-		)
+		idReq, sessionData, err = BeginIdentityRequest()
 		if err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: preview: %v", err), http.StatusBadRequest)
 			return
 		}
 	case "openid4vp":
-		// TODO: optinoal function for openid4vp
 		idReq, sessionData, err = BeginIdentityRequestOpenID4VP("digital-credentials.dev")
 		if err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
 			return
 		}
 	case "apple":
-		privKey, err := pki.LoadPrivateKey(applePrivateKeyPath)
+		idReq, sessionData, err = BeginIdentityRequestApple(applePrivateKeyPath)
 		if err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
 			return
-		}
-		nonce, err := CreateNonce()
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: apple: %v", err), http.StatusBadRequest)
-			return
-		}
-		idReq = credential_data.IdentityRequest{
-			Nonce: nonce.String(),
-		}
-		sessionData = &SessionData{
-			Nonce:      nonce,
-			PrivateKey: privKey,
 		}
 	}
 	id, err := s.sessions.SaveIdentitySession(sessionData)
@@ -160,9 +131,6 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
 		return
 	}
-
-	spew.Dump(idReq)
-	spew.Dump(sessionData)
 
 	jsonResponse(w, GetResponse{
 		SessionID: id,
@@ -189,6 +157,11 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var sessTrans []byte
 	var skipVerification bool
 
+	// 1. get session_transcript
+	// 2. prase request
+	// 3. parse mdoc device response
+	// 4. verify mdoc device response
+
 	switch req.Protocol {
 	case "openid4vp":
 		vpData, err := openid4vp.ParseVPTokenResponse(req.Data)
@@ -206,7 +179,6 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		skipVerification = true
 		decoded, err := b64.DecodeString(req.Data)
 		if err != nil {
-			// return nil, nil, fmt.Errorf("Error decoding Base64URL string: %v", err)
 			jsonErrorResponse(w, fmt.Errorf("failed to GetIdentitySession: %v", err), http.StatusBadRequest)
 			return
 		}
@@ -227,6 +199,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
+		// TODO: 取得方法を変更する
 		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
 		if err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)

@@ -1,5 +1,7 @@
 package credential_data
 
+// https://github.com/WICG/digital-credentials
+
 import (
 	doc "github.com/kokukuma/mdoc-verifier/document"
 )

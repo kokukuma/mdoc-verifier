@@ -73,7 +73,6 @@ async function getIdentity() {
     console.log(req)
     console.log(req.data)
 
-
     const controller = new AbortController();
     const signal = controller.signal;
 

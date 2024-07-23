@@ -22,7 +22,6 @@ func main() {
 
 	r.HandleFunc("/getIdentityRequest", srv.GetIdentityRequest).Methods("POST", "OPTIONS")
 	r.HandleFunc("/verifyIdentityResponse", srv.VerifyIdentityResponse).Methods("POST", "OPTIONS")
-	r.HandleFunc("/verifyIdentityResponse", srv.VerifyIdentityResponse).Methods("POST", "OPTIONS")
 
 	// For EUDIW
 	r.HandleFunc("/wallet/startIdentityRequest", srv.StartIdentityRequest).Methods("GET", "POST", "OPTIONS")
