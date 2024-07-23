@@ -113,24 +113,37 @@ func FormatFields(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier) [
 }
 
 func CreatePresentationDefinition() PresentationDefinition {
+	// var pathFields []PathField
+	// pathFields = append(pathFields, FormatFields(
+	// 	doc.EUDIPID1, true,
+	// 	doc.EudiFamilyName,
+	// )...)
+	// pathFields = append(pathFields, FormatFields(
+	// 	doc.ISO1801351, true,
+	// 	doc.IsoFamilyName,
+	// 	doc.IsoGivenName,
+	// 	doc.IsoBirthDate,
+	// 	doc.IsoDocumentNumber,
+	// )...)
+
 	return PresentationDefinition{
 		ID: "mDL-request-demo",
 		InputDescriptors: []InputDescriptor{
-			// {
-			// 	ID: "eu.europa.ec.eudi.pid.1",
-			// 	Format: Format{
-			// 		MsoMdoc: MsoMdoc{
-			// 			Alg: []string{"ES256"},
-			// 		},
-			// 	},
-			// 	Constraints: Constraints{
-			// 		LimitDisclosure: "required",
-			// 		Fields: FormatFields(
-			// 			doc.EUDIPID1, true,
-			// 			doc.EudiFamilyName,
-			// 		),
-			// 	},
-			// },
+			{
+				ID: "eu.europa.ec.eudi.pid.1",
+				Format: Format{
+					MsoMdoc: MsoMdoc{
+						Alg: []string{"ES256"},
+					},
+				},
+				Constraints: Constraints{
+					LimitDisclosure: "required",
+					Fields: FormatFields(
+						doc.EUDIPID1, true,
+						doc.EudiFamilyName,
+					),
+				},
+			},
 			{
 				ID: "org.iso.18013.5.1.mDL",
 				Format: Format{
@@ -149,6 +162,25 @@ func CreatePresentationDefinition() PresentationDefinition {
 					),
 				},
 			},
+			// {
+			// 	ID: "org.iso.18013.5.1.mDL",
+			// 	Format: Format{
+			// 		MsoMdoc: MsoMdoc{
+			// 			Alg: []string{"ES256"},
+			// 		},
+			// 	},
+			// 	Constraints: Constraints{
+			// 		LimitDisclosure: "required",
+			// 		Fields:          pathFields,
+			// 		// Fields: FormatFields(
+			// 		// 	doc.ISO1801351, true,
+			// 		// 	doc.IsoFamilyName,
+			// 		// 	doc.IsoGivenName,
+			// 		// 	doc.IsoBirthDate,
+			// 		// 	doc.IsoDocumentNumber,
+			// 		// ),
+			// 	},
+			// },
 		},
 	}
 }

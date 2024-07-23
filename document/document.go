@@ -3,7 +3,8 @@ package document
 type DocType string
 
 var (
-	IsoMDL DocType = "org.iso.18013.5.1.mDL"
+	IsoMDL  DocType = "org.iso.18013.5.1.mDL"
+	EudiPid DocType = "eu.europa.ec.eudi.pid.1"
 )
 
 type NameSpace string
