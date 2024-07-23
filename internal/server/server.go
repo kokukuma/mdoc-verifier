@@ -102,38 +102,31 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var idReq interface{}
-	var sessionData *SessionData
-	var err error
+	// create session
+	// Only apple require to use applePrivateKeyPath, but that can be used for other protocols as well.
+	session, err := s.sessions.NewSession(applePrivateKeyPath)
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
+		return
+	}
 
+	// create request
+	var idReq interface{}
 	switch req.Protocol {
 	case "preview":
-		idReq, sessionData, err = BeginIdentityRequest()
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: preview: %v", err), http.StatusBadRequest)
-			return
-		}
+		idReq, err = BeginIdentityRequest(session)
 	case "openid4vp":
-		idReq, sessionData, err = BeginIdentityRequestOpenID4VP("digital-credentials.dev")
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
-			return
-		}
+		idReq, err = BeginIdentityRequestOpenID4VP(session, "digital-credentials.dev")
 	case "apple":
-		idReq, sessionData, err = BeginIdentityRequestApple(applePrivateKeyPath)
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
-			return
-		}
+		idReq, err = BeginIdentityRequestApple(session)
 	}
-	id, err := s.sessions.SaveIdentitySession(sessionData)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	jsonResponse(w, GetResponse{
-		SessionID: id,
+		SessionID: session.ID,
 		Data:      idReq,
 	}, http.StatusOK)
 
@@ -157,10 +150,16 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var sessTrans []byte
 	var skipVerification bool
 
-	// 1. get session_transcript
-	// 2. prase request
-	// 3. parse mdoc device response
-	// 4. verify mdoc device response
+	// // 1. get session_transcript
+	// sessTrans, err := session.GetSessionTranscript("protocol", req.Origin)
+	//
+	// // 2. prase request
+	// parsedReq, err := parseVerifyRequest(req.Data) // AR/HPKE/?
+	//
+	// // 3. parse mdoc device response
+	// devResp, err := ParseDeviceResponse(parsedReq, session)
+	//
+	// // 4. verify mdoc device response
 
 	switch req.Protocol {
 	case "openid4vp":
@@ -199,21 +198,24 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		// TODO: 取得方法を変更する
-		itemsmap, err := doc.IssuerSigned.IssuerSignedItems()
-		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to get IssuerSignedItems: %v", err), http.StatusBadRequest)
-			return
-		}
-
-		for ns, items := range itemsmap {
-			for _, item := range items {
-				resp.Elements = append(resp.Elements, Element{
-					NameSpace:  ns,
-					Identifier: item.ElementIdentifier,
-					Value:      item.ElementValue,
-				})
+		// element取得
+		for _, elemName := range []document.ElementIdentifier{
+			document.IsoFamilyName,
+			document.IsoGivenName,
+			document.IsoBirthDate,
+			document.IsoDocumentNumber,
+		} {
+			elemValue, err := doc.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
+			if err != nil {
+				jsonErrorResponse(w, fmt.Errorf("failed to get data: %v", err), http.StatusBadRequest)
+				return
 			}
+			resp.Elements = append(resp.Elements, Element{
+				NameSpace:  document.ISO1801351,
+				Identifier: elemName,
+				Value:      elemValue,
+			})
+			spew.Dump(elemName, elemValue)
 		}
 	}
 

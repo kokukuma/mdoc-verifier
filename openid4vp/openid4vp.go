@@ -144,6 +144,8 @@ func CreatePresentationDefinition() PresentationDefinition {
 						doc.ISO1801351, true,
 						doc.IsoFamilyName,
 						doc.IsoGivenName,
+						doc.IsoBirthDate,
+						doc.IsoDocumentNumber,
 					),
 				},
 			},

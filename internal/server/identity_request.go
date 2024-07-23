@@ -1,58 +1,23 @@
 package server
 
 import (
-	"crypto/ecdh"
-	"crypto/rand"
-	"fmt"
-
 	"github.com/kokukuma/mdoc-verifier/credential_data"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
-	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
-func BeginIdentityRequestOpenID4VP(clientID string) (*openid4vp.AuthorizationRequest, *SessionData, error) {
-	nonce, err := CreateNonce()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	curve := ecdh.P256()
-
-	privKey, err := curve.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generateKey: %v", err)
-	}
-
+func BeginIdentityRequestOpenID4VP(session *Session, clientID string) (*openid4vp.AuthorizationRequest, error) {
 	idReq := &openid4vp.AuthorizationRequest{
-		ClientID:       clientID,
-		ClientIDScheme: "web-origin",
-		ResponseType:   "vp_token",
-		Nonce:          nonce.String(),
-
-		// TODO: eu.europa.ec.eudi.pid.1 のぶんで動かないかも
+		ClientID:               clientID,
+		ClientIDScheme:         "web-origin",
+		ResponseType:           "vp_token",
+		Nonce:                  session.Nonce.String(),
 		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
 	}
-
-	return idReq, &SessionData{
-		Nonce:      nonce,
-		PrivateKey: privKey,
-	}, nil
+	return idReq, nil
 }
 
-func BeginIdentityRequest() (*credential_data.IdentityRequest, *SessionData, error) {
-	nonce, err := CreateNonce()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	curve := ecdh.P256()
-
-	privKey, err := curve.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generateKey: %v", err)
-	}
-
+func BeginIdentityRequest(session *Session) (*credential_data.IdentityRequest, error) {
 	idReq := &credential_data.IdentityRequest{
 		Selector: credential_data.Selector{
 			Format:    []string{"mdoc"},
@@ -81,31 +46,15 @@ func BeginIdentityRequest() (*credential_data.IdentityRequest, *SessionData, err
 				},
 			},
 		},
-		Nonce:           nonce.String(),
-		ReaderPublicKey: b64.EncodeToString(privKey.PublicKey().Bytes()),
+		Nonce:           session.Nonce.String(),
+		ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
 	}
-
-	return idReq, &SessionData{
-		Nonce:      nonce,
-		PrivateKey: privKey,
-	}, nil
+	return idReq, nil
 }
 
-func BeginIdentityRequestApple(privateKeyPath string) (*credential_data.IdentityRequest, *SessionData, error) {
-	privKey, err := pki.LoadPrivateKey(privateKeyPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	nonce, err := CreateNonce()
-	if err != nil {
-		return nil, nil, err
-	}
+func BeginIdentityRequestApple(session *Session) (*credential_data.IdentityRequest, error) {
 	idReq := credential_data.IdentityRequest{
-		Nonce: nonce.String(),
+		Nonce: session.Nonce.String(),
 	}
-	sessionData := &SessionData{
-		Nonce:      nonce,
-		PrivateKey: privKey,
-	}
-	return &idReq, sessionData, nil
+	return &idReq, nil
 }

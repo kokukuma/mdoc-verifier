@@ -2,10 +2,13 @@ package server
 
 import (
 	"crypto/ecdh"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 type Sessions struct {
@@ -13,19 +16,25 @@ type Sessions struct {
 	sessions map[string]*Session
 }
 
-// TODO: Sessionは全部こっち側に持ってくる
-
-func (s *Sessions) SaveIdentitySession(data *SessionData) (string, error) {
+func (s *Sessions) SaveSession(data *Session) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := uuid.New().String()
+	data.ID = uuid.New().String()
+	s.sessions[data.ID] = data
 
-	s.sessions[id] = &Session{
-		id:   id,
-		data: data,
+	return data.ID, nil
+}
+
+func (s *Sessions) NewSession(privKeyPath string) (*Session, error) {
+	session, err := NewSession(privKeyPath)
+	if err != nil {
+		return nil, err
 	}
-	return id, nil
+	if _, err := s.SaveSession(session); err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 func (s *Sessions) AddVerifyResponse(id string, vr VerifyResponse) error {
@@ -35,6 +44,7 @@ func (s *Sessions) AddVerifyResponse(id string, vr VerifyResponse) error {
 	s.sessions[id].VerifyResponse = &vr
 	return nil
 }
+
 func (s *Sessions) GetVerifyResponse(id string) (*VerifyResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -46,7 +56,7 @@ func (s *Sessions) GetVerifyResponse(id string) (*VerifyResponse, error) {
 	return session.VerifyResponse, nil
 }
 
-func (s *Sessions) GetIdentitySession(id string) (*SessionData, error) {
+func (s *Sessions) GetIdentitySession(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -54,7 +64,7 @@ func (s *Sessions) GetIdentitySession(id string) (*SessionData, error) {
 	if !ok {
 		return nil, errors.New("session not found")
 	}
-	return session.data, nil
+	return session, nil
 }
 
 func NewSessions() *Sessions {
@@ -64,20 +74,45 @@ func NewSessions() *Sessions {
 }
 
 type Session struct {
-	id             string
-	data           *SessionData
+	ID             string
+	Nonce          Nonce
+	PrivateKey     *ecdh.PrivateKey
 	VerifyResponse *VerifyResponse
 }
 
-type SessionData struct {
-	Nonce      Nonce            `json:"challenge"`
-	PrivateKey *ecdh.PrivateKey `json:"private_key"`
-}
-
-func (s *SessionData) GetNonceByte() []byte {
+func (s *Session) GetNonceByte() []byte {
 	return []byte(s.Nonce)
 }
 
-func (s *SessionData) GetPrivateKey() *ecdh.PrivateKey {
+func NewSession(privKeyPath string) (*Session, error) {
+	nonce, err := CreateNonce()
+	if err != nil {
+		return nil, err
+	}
+
+	// mainly for apple
+	if privKeyPath != "" {
+		privKey, err := pki.LoadPrivateKey(privKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		return &Session{
+			Nonce:      nonce,
+			PrivateKey: privKey,
+		}, nil
+	}
+
+	curve := ecdh.P256()
+	privKey, err := curve.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generateKey: %v", err)
+	}
+	return &Session{
+		Nonce:      nonce,
+		PrivateKey: privKey,
+	}, nil
+}
+
+func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
 	return s.PrivateKey
 }

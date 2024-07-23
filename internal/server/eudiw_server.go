@@ -16,17 +16,17 @@ import (
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	nonce, err := CreateNonce()
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	sessionData := &SessionData{
+	session := &Session{
 		Nonce: nonce,
 	}
 
-	id, err := s.sessions.SaveIdentitySession(sessionData)
+	id, err := s.sessions.SaveSession(session)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to SaveIdentitySession: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
 	}
 
