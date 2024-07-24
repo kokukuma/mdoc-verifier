@@ -60,6 +60,8 @@ func SessionTranscriptOID4VP(nonce []byte, clientID, responseURI, apu string) ([
 
 	// nonce and mdocGeneratedNonce must be treated as tstr
 	nonceStr := string(nonce)
+
+	// It have to be nopadding
 	mdocGeneratedNonce, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(apu)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode mdocGeneratedNonce")

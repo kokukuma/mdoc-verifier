@@ -17,6 +17,7 @@ import (
 func ParseDeviceResponse(
 	ar *AuthorizationResponse,
 ) (*mdoc.DeviceResponse, error) {
+	// It must use nopadding ?
 	decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(ar.VPToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode base64")

@@ -25,13 +25,13 @@ type DeviceResponse struct {
 	Status         uint            `json:"status"`
 }
 
-func (d DeviceResponse) GetDocument(docType document.DocType) (*Document, error) {
+func (d DeviceResponse) GetDocument(docType document.DocType) (Document, error) {
 	for _, doc := range d.Documents {
 		if doc.DocType == docType {
-			return &doc, nil
+			return doc, nil
 		}
 	}
-	return nil, fmt.Errorf("failed to find doc: doctype=%s", docType)
+	return Document{}, fmt.Errorf("failed to find doc: doctype=%s", docType)
 }
 
 type Document struct {

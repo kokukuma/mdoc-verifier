@@ -9,9 +9,28 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
+)
+
+var (
+	RequiredElementsEUDIW = credential_data.Documents{
+		document.IsoMDL: {
+			document.ISO1801351: {
+				document.IsoFamilyName,
+				document.IsoGivenName,
+				document.IsoBirthDate,
+				document.IsoDocumentNumber,
+			},
+		},
+		document.EudiPid: {
+			document.EUDIPID1: {
+				document.EudiFamilyName,
+			},
+		},
+	}
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +75,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
 		//       まぁどっちでもいい。
-		PresentationDefinition: openid4vp.CreatePresentationDefinition(),
+		PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("mDL-request-demo"),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
 		ClientMetadata: openid4vp.CreateClientMetadata(),
 	}
@@ -122,31 +141,14 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 
 	// 4. verify mdoc device response
 	var resp VerifyResponse
-
-	items := map[document.DocType]map[document.NameSpace][]document.ElementIdentifier{
-		document.IsoMDL: {
-			document.ISO1801351: {
-				document.IsoFamilyName,
-				document.IsoGivenName,
-				document.IsoBirthDate,
-				document.IsoDocumentNumber,
-			},
-		},
-		document.EudiPid: {
-			document.EUDIPID1: {
-				document.EudiFamilyName,
-			},
-		},
-	}
-
-	for docType, namespaces := range items {
+	for docType, namespaces := range RequiredElementsEUDIW {
 		doc, err := devResp.GetDocument(docType)
 		if err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
-			return
+			fmt.Printf("document not found: %s", doc.DocType)
+			continue
 		}
 
-		if err := mdoc.Verify(*doc, sessTrans, roots, true, true); err != nil {
+		if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 			return
 		}
@@ -155,8 +157,8 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 			for _, elemName := range elemNames {
 				elemValue, err := doc.IssuerSigned.GetElementValue(namespace, elemName)
 				if err != nil {
-					jsonErrorResponse(w, fmt.Errorf("failed to get data: %v", err), http.StatusBadRequest)
-					return
+					fmt.Printf("element not found: %s", elemName)
+					continue
 				}
 				resp.Elements = append(resp.Elements, Element{
 					NameSpace:  namespace,

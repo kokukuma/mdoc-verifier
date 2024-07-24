@@ -1,16 +1,18 @@
 package main
 
 import (
+	"crypto/ecdh"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
+	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -23,62 +25,85 @@ var (
 	// obtaine from apple document beforehand
 	rootCerts = "/Users/kokukuma/Downloads/identity_verification_sample/sample/issuer_root.crt"
 
-	// obtain from apple verify with wallet API response
-	hpkeEnvelopeCborPath = "/Users/kokukuma/Downloads/identity_verification_sample/sample/hpke_envelope.cbor"
-
 	// create by ourselvies
 	nonceStr = "964c3e56a06061fa213fce2ba73217a6d359c2e65d44ec6b5b94f9c57eeeb3c045906344c7032e2609eb60533c35a98a75d0d2444ef9057c55cbb2d05d672a25"
 
-	parsedTime, _ = time.Parse("2006-01-02", "2022-06-01")
+	// obtain from apple verify with wallet API response
+	hpkeEnvelopeCborPath = "/Users/kokukuma/Downloads/identity_verification_sample/sample/hpke_envelope.cbor"
+
+	//
+	data, nonce []byte
+	roots       *x509.CertPool
+	privKey     *ecdh.PrivateKey
 )
 
-func main() {
-	mdoc.Now = parsedTime // For test
+func init() {
+	var err error
 
-	data, nonce, err := loadSampleData()
+	// To pass the verification of fixed sample mdoc
+	parsedTime, _ := time.Parse("2006-01-02", "2022-06-01")
+	mdoc.Now = parsedTime
+
+	data, nonce, err = loadSampleData()
 	if err != nil {
 		panic("failed to load sample data: " + err.Error())
 	}
 
-	roots, err := pki.GetRootCertificate(rootCerts)
+	roots, err = pki.GetRootCertificate(rootCerts)
 	if err != nil {
 		panic("failed to load rootCert: " + err.Error())
 	}
 
-	privKey, err := pki.LoadPrivateKey(applePrivateKeyPath)
+	privKey, err = pki.LoadPrivateKey(applePrivateKeyPath)
 	if err != nil {
 		panic("failed to load private key: " + err.Error())
 	}
+}
 
-	// deviceResponseのparse
-	devResp, sessTrans, err := apple_hpke.ParseDeviceResponse(data, merchantID, teamID, privKey, nonce)
+func main() {
+	// sessTrans will be used to decrypt HPKEEnvelope and mdoc verification.
+	sessTrans, err := apple_hpke.SessionTranscript(merchantID, teamID, nonce, hash.Digest(privKey.PublicKey().Bytes(), "SHA-256"))
+	if err != nil {
+		panic("failed to get session transcript: " + err.Error())
+	}
+
+	// Parse request into HPKEEnvelope defined in apple's spec
+	hpkeEnvelope, err := apple_hpke.ParseHPKEEnvelope(data)
+	if err != nil {
+		panic("failed to ParseHPKEEnvelope: " + err.Error())
+	}
+
+	// Parse HPKEEnvelope into data model of ISO/IEC 18013-5
+	devResp, err := apple_hpke.ParseDeviceResponse(hpkeEnvelope, privKey, sessTrans)
 	if err != nil {
 		panic("failed to parse device response: " + err.Error())
 	}
 
-	for _, doc := range devResp.Documents {
+	docIsoMDL, err := devResp.GetDocument(document.IsoMDL)
+	if err != nil {
+		panic("failed to get document: " + err.Error())
+	}
 
-		// mdoc検証
-		if err := mdoc.Verify(doc, sessTrans, roots, false, false); err != nil {
-			panic("failed to verify mdoc: " + err.Error())
-		}
+	if err := mdoc.Verify(docIsoMDL, sessTrans, roots, false, false); err != nil {
+		panic("failed to verify mdoc: " + err.Error())
+	}
 
-		// element取得
-		for _, elemName := range []document.ElementIdentifier{
-			document.IsoFamilyName,
-			document.IsoGivenName,
-			document.IsoBirthDate,
-		} {
-			elemValue, err := doc.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
-			if err != nil {
-				panic("failed to get element: " + err.Error())
-			}
-			spew.Dump(elemName, elemValue)
+	for _, elemName := range []document.ElementIdentifier{
+		document.IsoFamilyName,
+		document.IsoGivenName,
+		document.IsoBirthDate,
+		document.IsoResidentCity,
+		document.IsoDocumentNumber,
+	} {
+		elemValue, err := docIsoMDL.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
+		if err != nil {
+			panic("failed to get element: " + err.Error())
 		}
+		fmt.Println(elemName, ":", elemValue)
 	}
 }
 
-// AppleのSampleを取得
+// This sample data is provided from Apple developer page.
 func loadSampleData() ([]byte, []byte, error) {
 	dataStr, err := os.ReadFile(hpkeEnvelopeCborPath)
 	if err != nil {

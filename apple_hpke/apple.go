@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	b64 = base64.URLEncoding.WithPadding(base64.NoPadding)
+	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
 )
 
 // https://developer.apple.com/documentation/passkit_apple_pay_and_wallet/wallet/verifying_wallet_identity_requests
@@ -31,21 +31,15 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
-func ParseHPKEEnvelope(data string) (*HPKEEnvelope, error) {
-	decoded, err := b64.DecodeString(data)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseHPKEEnvelope(data []byte) (*HPKEEnvelope, error) {
 	var claims HPKEEnvelope
-	if err := cbor.Unmarshal(decoded, &claims); err != nil {
+	if err := cbor.Unmarshal(data, &claims); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
 	}
 
 	return &claims, nil
 }
 
-// 基本的にはこれがメイン
 func ParseDeviceResponse(
 	claims *HPKEEnvelope,
 	privateKey *ecdh.PrivateKey,

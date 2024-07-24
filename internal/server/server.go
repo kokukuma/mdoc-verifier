@@ -15,6 +15,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
+	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
@@ -32,6 +33,18 @@ var (
 	teamID              = "PassKit_Identity_Test_Team_ID"
 	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
 	serverDomain        = os.Getenv("SERVER_DOMAIN")
+
+	// Which document and elements want to obtain.
+	RequiredElements = credential_data.Documents{
+		document.IsoMDL: {
+			document.ISO1801351: {
+				document.IsoFamilyName,
+				document.IsoGivenName,
+				document.IsoBirthDate,
+				document.IsoDocumentNumber,
+			},
+		},
+	}
 )
 
 func NewServer() *Server {
@@ -115,15 +128,23 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	var idReq interface{}
 	switch req.Protocol {
 	case "preview":
-		idReq, err = BeginIdentityRequest(session)
+		idReq = &credential_data.IdentityRequest{
+			Selector:        RequiredElements.Selector()[0], // Identity Credential API only accept single selector ... ?
+			Nonce:           session.Nonce.String(),
+			ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
+		}
 	case "openid4vp":
-		idReq, err = BeginIdentityRequestOpenID4VP(session, "digital-credentials.dev")
+		idReq = &openid4vp.AuthorizationRequest{
+			ClientID:               "digital-credentials.dev",
+			ClientIDScheme:         "web-origin",
+			ResponseType:           "vp_token",
+			Nonce:                  session.Nonce.String(),
+			PresentationDefinition: RequiredElements.PresentationDefinition("mDL-request-demo"),
+		}
 	case "apple":
-		idReq, err = BeginIdentityRequestApple(session)
-	}
-	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to get BeginIdentityRequest: openid4vp: %v", err), http.StatusBadRequest)
-		return
+		idReq = &credential_data.IdentityRequest{
+			Nonce: session.Nonce.String(),
+		}
 	}
 
 	jsonResponse(w, GetResponse{
@@ -140,6 +161,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		jsonErrorResponse(w, fmt.Errorf("failed to parseJSON: %v", err), http.StatusBadRequest)
 		return
 	}
+	spew.Dump(req)
 
 	session, err := s.sessions.GetSession(req.SessionID)
 	if err != nil {
@@ -172,7 +194,11 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	case "preview":
 		prasedReq, err = preview_hpke.ParseTokenResponse(req.Data)
 	case "apple":
-		prasedReq, err = apple_hpke.ParseHPKEEnvelope(req.Data)
+		// This base64URL encoding is not in any spec, just depends on a client implementation.
+		decoded, err := b64.DecodeString(req.Data)
+		if err == nil {
+			prasedReq, err = apple_hpke.ParseHPKEEnvelope(decoded)
+		}
 	}
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse reqest: %v", err), http.StatusBadRequest)
@@ -198,32 +224,34 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 
 	// 4. verify mdoc device response
 	var resp VerifyResponse
-	for _, doc := range devResp.Documents {
+	for docType, namespaces := range RequiredElements {
+		doc, err := devResp.GetDocument(docType)
+		if err != nil {
+			fmt.Printf("document not found: %s", doc.DocType)
+			continue
+		}
+
 		if !skipVerification {
-			if err := mdoc.Verify(doc, sessTrans, roots, true, false); err != nil {
+			if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
 				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 				return
 			}
 		}
 
-		// element取得
-		for _, elemName := range []document.ElementIdentifier{
-			document.IsoFamilyName,
-			document.IsoGivenName,
-			document.IsoBirthDate,
-			document.IsoDocumentNumber,
-		} {
-			elemValue, err := doc.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
-			if err != nil {
-				fmt.Println(err)
-				continue
+		for namespace, elemNames := range namespaces {
+			for _, elemName := range elemNames {
+				elemValue, err := doc.IssuerSigned.GetElementValue(namespace, elemName)
+				if err != nil {
+					fmt.Printf("element not found: %s", elemName)
+					continue
+				}
+				resp.Elements = append(resp.Elements, Element{
+					NameSpace:  namespace,
+					Identifier: elemName,
+					Value:      elemValue,
+				})
+				spew.Dump(elemName, elemValue)
 			}
-			resp.Elements = append(resp.Elements, Element{
-				NameSpace:  document.ISO1801351,
-				Identifier: elemName,
-				Value:      elemValue,
-			})
-			spew.Dump(elemName, elemValue)
 		}
 	}
 
