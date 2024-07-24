@@ -148,7 +148,13 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
+		date, _ := time.Parse("2006-01-02", "2024-05-02")
+		if err := mdoc.NewVerifier(
+			roots,
+			mdoc.AllowSelfCert(),
+			mdoc.SkipSignedDateValidation(),
+			mdoc.WithCertCurrentTime(date),
+		).Verify(doc, sessTrans); err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 			return
 		}

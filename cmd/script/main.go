@@ -40,10 +40,6 @@ var (
 func init() {
 	var err error
 
-	// To pass the verification of fixed sample mdoc
-	parsedTime, _ := time.Parse("2006-01-02", "2022-06-01")
-	mdoc.Now = parsedTime
-
 	data, nonce, err = loadSampleData()
 	if err != nil {
 		panic("failed to load sample data: " + err.Error())
@@ -78,7 +74,8 @@ func main() {
 		panic("failed to get document: " + err.Error())
 	}
 
-	if err := mdoc.Verify(docIsoMDL, sessTrans, roots, false, false); err != nil {
+	date, _ := time.Parse("2006-01-02", "2022-06-01")
+	if err := mdoc.NewVerifier(roots, mdoc.WithSignCurrentTime(date), mdoc.WithCertCurrentTime(date)).Verify(docIsoMDL, sessTrans); err != nil {
 		panic("failed to verify mdoc: " + err.Error())
 	}
 

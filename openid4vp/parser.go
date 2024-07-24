@@ -2,7 +2,6 @@ package openid4vp
 
 import (
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,7 +17,8 @@ func ParseAuthzRespToDeviceResp(
 	ar *AuthorizationResponse,
 ) (*mdoc.DeviceResponse, error) {
 	// It must use nopadding ?
-	decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(ar.VPToken)
+	// decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(ar.VPToken)
+	decoded, err := b64.DecodeString(ar.VPToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode base64")
 	}

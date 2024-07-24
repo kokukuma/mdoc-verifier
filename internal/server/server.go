@@ -155,21 +155,43 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
+	var verifierOptions []mdoc.VerifierOption
+
+	switch protocol {
+	case "openid4vp":
+		verifierOptions = []mdoc.VerifierOption{
+			mdoc.AllowSelfCert(),
+			mdoc.SkipSignedDateValidation(),
+		}
+	case "preview":
+		verifierOptions = []mdoc.VerifierOption{
+			mdoc.AllowSelfCert(),
+			mdoc.SkipSignedDateValidation(),
+		}
+	case "apple":
+		verifierOptions = []mdoc.VerifierOption{
+			mdoc.SkipVerifyDeviceSigned(),
+			mdoc.SkipVerifyCertificate(),
+			mdoc.SkipVerifyIssuerAuth(),
+			mdoc.SkipValidateCertification(),
+		}
+	}
+	return verifierOptions
+}
+
 func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) {
 	req := VerifyRequest{}
 	if err := parseJSON(r, &req); err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parseJSON: %v", err), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(req)
 
 	session, err := s.sessions.GetSession(req.SessionID)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return
 	}
-
-	var skipVerification bool
 
 	// 1. get session_transcript
 	var sessTrans []byte
@@ -195,7 +217,6 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	case "preview":
 		devResp, err = preview_hpke.ParseDataToDeviceResp(req.Data, session.GetPrivateKey(), sessTrans)
 	case "apple":
-		skipVerification = true
 		// This base64URL encoding is not in any spec, just depends on a client implementation.
 		decoded, err := b64.DecodeString(req.Data)
 		if err == nil {
@@ -208,8 +229,9 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 	spew.Dump(devResp)
 
-	// 3. verify mdoc device response
+	// 3. verify mdoc device response;
 	var resp VerifyResponse
+
 	for docType, namespaces := range RequiredElements {
 		doc, err := devResp.GetDocument(docType)
 		if err != nil {
@@ -217,11 +239,10 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			continue
 		}
 
-		if !skipVerification {
-			if err := mdoc.Verify(doc, sessTrans, roots, true, true); err != nil {
-				jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
-				return
-			}
+		// set verifier options mainly because there is no legitimate wallet for now.
+		if err := mdoc.NewVerifier(roots, verifierOptionsForDevelopment(req.Protocol)...).Verify(doc, sessTrans); err != nil {
+			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
+			return
 		}
 
 		for namespace, elemNames := range namespaces {
