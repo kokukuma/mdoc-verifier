@@ -70,15 +70,11 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 		log.Fatal("5", err)
 	}
 
-	parsedTime, err := time.Parse("2006-01-02", "2022-06-01")
-	if err != nil {
-		log.Fatal("5", err)
-	}
-	Now = parsedTime
+	parsedTime, _ := time.Parse("2006-01-02", "2022-06-01")
 
 	t.Run("Verify", func(t *testing.T) {
 		for _, doc := range topics.Identity.Documents {
-			if err := Verify(doc, sessionTranscript, roots, false, false); err != nil {
+			if err := NewVerifier(roots, WithSignCurrentTime(parsedTime), WithCertCurrentTime(parsedTime)).Verify(doc, sessionTranscript); err != nil {
 				t.Fatalf("failed to Verify %v", err)
 			}
 		}
