@@ -131,15 +131,15 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	}
 	spew.Dump(sessTrans)
 
-	// 3. parse mdoc device response
-	devResp, err := openid4vp.ParseDeviceResponse(ar)
+	// 2. parse mdoc device response
+	devResp, err := openid4vp.ParseAuthzRespToDeviceResp(ar)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse device responsee: %v", err), http.StatusBadRequest)
 		return
 	}
 	spew.Dump(devResp)
 
-	// 4. verify mdoc device response
+	// 3. verify mdoc device response
 	var resp VerifyResponse
 	for docType, namespaces := range RequiredElementsEUDIW {
 		doc, err := devResp.GetDocument(docType)

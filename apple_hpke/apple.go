@@ -31,20 +31,16 @@ type HPKEParams struct {
 	InfoHash []byte `json:"infoHash"`
 }
 
-func ParseHPKEEnvelope(data []byte) (*HPKEEnvelope, error) {
+func ParseDataToDeviceResp(
+	data []byte,
+	privateKey *ecdh.PrivateKey,
+	sessTrans []byte,
+) (*mdoc.DeviceResponse, error) {
+
 	var claims HPKEEnvelope
 	if err := cbor.Unmarshal(data, &claims); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
 	}
-
-	return &claims, nil
-}
-
-func ParseDeviceResponse(
-	claims *HPKEEnvelope,
-	privateKey *ecdh.PrivateKey,
-	sessTrans []byte,
-) (*mdoc.DeviceResponse, error) {
 
 	if !bytes.Equal(hash.Digest(sessTrans, "SHA-256"), claims.Params.InfoHash) {
 		return nil, fmt.Errorf("infoHash is not match: %v != %v", hash.Digest(sessTrans, "SHA-256"), claims.Params.InfoHash)

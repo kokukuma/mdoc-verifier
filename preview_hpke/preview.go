@@ -31,19 +31,16 @@ type EncryptionParameters struct {
 	PKEM []byte `json:"pkEm"`
 }
 
-func ParseTokenResponse(data string) (*PreviewData, error) {
+func ParseDataToDeviceResp(
+	data string,
+	privateKey *ecdh.PrivateKey,
+	sessTrans []byte,
+) (*mdoc.DeviceResponse, error) {
+
 	var msg PreviewData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
-	return &msg, nil
-}
-
-func ParseDeviceResponse(
-	msg *PreviewData,
-	privateKey *ecdh.PrivateKey,
-	sessTrans []byte,
-) (*mdoc.DeviceResponse, error) {
 
 	decoded, err := b64.DecodeString(msg.Token)
 	if err != nil {

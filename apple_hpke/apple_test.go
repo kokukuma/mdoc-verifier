@@ -70,11 +70,6 @@ func TestParseDeviceResponse(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	hpkeEnv, err := ParseHPKEEnvelope(sampleHpkeEnvelope)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	privKey, err := loadPrivateKeyForTest()
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +80,7 @@ func TestParseDeviceResponse(t *testing.T) {
 	sessTrans, _ := SessionTranscript(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
 
 	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, err := ParseDeviceResponse(hpkeEnv, privKey, sessTrans)
+		deviceResp, err := ParseDataToDeviceResp(sampleHpkeEnvelope, privKey, sessTrans)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

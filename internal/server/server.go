@@ -186,43 +186,29 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 2. prase request
-	var prasedReq interface{}
+	// 2. prase request to mdoc device response
+	var devResp *mdoc.DeviceResponse
+
 	switch req.Protocol {
 	case "openid4vp":
-		prasedReq, err = openid4vp.ParseVPTokenResponse(req.Data)
+		devResp, err = openid4vp.ParseDataToDeviceResp(req.Data)
 	case "preview":
-		prasedReq, err = preview_hpke.ParseTokenResponse(req.Data)
+		devResp, err = preview_hpke.ParseDataToDeviceResp(req.Data, session.GetPrivateKey(), sessTrans)
 	case "apple":
+		skipVerification = true
 		// This base64URL encoding is not in any spec, just depends on a client implementation.
 		decoded, err := b64.DecodeString(req.Data)
 		if err == nil {
-			prasedReq, err = apple_hpke.ParseHPKEEnvelope(decoded)
+			devResp, err = apple_hpke.ParseDataToDeviceResp(decoded, session.GetPrivateKey(), sessTrans)
 		}
 	}
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse reqest: %v", err), http.StatusBadRequest)
 		return
 	}
-
-	// 3. parse mdoc device response
-	var devResp *mdoc.DeviceResponse
-	switch req.Protocol {
-	case "openid4vp":
-		devResp, err = openid4vp.ParseDeviceResponse(prasedReq.(*openid4vp.AuthorizationResponse))
-	case "preview":
-		devResp, err = preview_hpke.ParseDeviceResponse(prasedReq.(*preview_hpke.PreviewData), session.GetPrivateKey(), sessTrans)
-	case "apple":
-		skipVerification = true
-		devResp, err = apple_hpke.ParseDeviceResponse(prasedReq.(*apple_hpke.HPKEEnvelope), session.GetPrivateKey(), sessTrans)
-	}
-	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to parse mdoc device response: %v", err), http.StatusBadRequest)
-		return
-	}
 	spew.Dump(devResp)
 
-	// 4. verify mdoc device response
+	// 3. verify mdoc device response
 	var resp VerifyResponse
 	for docType, namespaces := range RequiredElements {
 		doc, err := devResp.GetDocument(docType)

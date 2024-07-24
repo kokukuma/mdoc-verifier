@@ -14,7 +14,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
-func ParseDeviceResponse(
+func ParseAuthzRespToDeviceResp(
 	ar *AuthorizationResponse,
 ) (*mdoc.DeviceResponse, error) {
 	// It must use nopadding ?
@@ -30,12 +30,13 @@ func ParseDeviceResponse(
 	return &claims, nil
 }
 
-func ParseVPTokenResponse(data string) (*AuthorizationResponse, error) {
+func ParseDataToDeviceResp(data string) (*mdoc.DeviceResponse, error) {
 	var msg AuthorizationResponse
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
-	return &msg, nil
+
+	return ParseAuthzRespToDeviceResp(&msg)
 }
 
 func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*AuthorizationResponse, error) {

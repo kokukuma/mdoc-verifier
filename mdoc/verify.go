@@ -85,7 +85,7 @@ func VerifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscri
 
 	pubKey, err := mso.DeviceKey()
 	if err != nil {
-		return fmt.Errorf("failed to get alg %w", err)
+		return fmt.Errorf("failed to get deviceKey %w", err)
 	}
 
 	verifier, err := cose.NewVerifier(alg, pubKey)

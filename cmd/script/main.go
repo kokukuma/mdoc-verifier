@@ -67,14 +67,8 @@ func main() {
 		panic("failed to get session transcript: " + err.Error())
 	}
 
-	// Parse request into HPKEEnvelope defined in apple's spec
-	hpkeEnvelope, err := apple_hpke.ParseHPKEEnvelope(data)
-	if err != nil {
-		panic("failed to ParseHPKEEnvelope: " + err.Error())
-	}
-
 	// Parse HPKEEnvelope into data model of ISO/IEC 18013-5
-	devResp, err := apple_hpke.ParseDeviceResponse(hpkeEnvelope, privKey, sessTrans)
+	devResp, err := apple_hpke.ParseDataToDeviceResp(data, privKey, sessTrans)
 	if err != nil {
 		panic("failed to parse device response: " + err.Error())
 	}
