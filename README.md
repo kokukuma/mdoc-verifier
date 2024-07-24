@@ -14,7 +14,7 @@ This project is an mdoc/mDL (mobile driving license) verification compliant with
 - `server`: Example server demonstrating how to use the verifier
 
 ## How to use for Apple's Verify with Wallet API
-- See cmd/script/main.go
+- See [cmd/script/main.go](https://github.com/kokukuma/mdoc-verifier/blob/master/cmd/script/main.go)
 - The apple's sample data can be downlowed from https://developer.apple.com/wallet/get-started-with-verify-with-wallet/
 
 ## Status of behavior check
