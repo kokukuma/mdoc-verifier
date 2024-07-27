@@ -30,6 +30,11 @@ var (
 				document.EudiFamilyName,
 			},
 		},
+		// document.EudiLoyalty: {
+		// 	document.EUDILOYALTY: {
+		// 		document.EudiLoyaltyEmailAddress,
+		// 	},
+		// },
 	}
 )
 
@@ -44,7 +49,7 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	jar := openid4vp.JWTSecuredAuthorizeRequest{
 		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
 		ClientID:          serverDomain,
-		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, session.ID),
+		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, session.ID), // request-id ?
 	}
 
 	jsonResponse(w, struct {
@@ -148,12 +153,12 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		date, _ := time.Parse("2006-01-02", "2024-05-02")
+		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-			mdoc.WithCertCurrentTime(date),
+			// mdoc.AllowSelfCert(),
+			// mdoc.SkipSignedDateValidation(),
+			// mdoc.WithCertCurrentTime(date),
 		).Verify(doc, sessTrans); err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
 			return
@@ -197,7 +202,7 @@ func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.sessions.GetVerifyResponse(req.SessionID)
+	resp, err := s.sessions.GetVerifyResponse(req.SessionID) // transaction-id
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to GetSession: %v", err), http.StatusBadRequest)
 		return

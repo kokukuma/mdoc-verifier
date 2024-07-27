@@ -5,6 +5,7 @@ type DocType string
 var (
 	IsoMDL  DocType = "org.iso.18013.5.1.mDL"
 	EudiPid DocType = "eu.europa.ec.eudi.pid.1"
+	// EudiLoyalty DocType = "eu.europa.ec.eudi.loyalty.1"
 )
 
 type NameSpace string
@@ -12,6 +13,7 @@ type NameSpace string
 var (
 	ISO1801351 NameSpace = "org.iso.18013.5.1"
 	EUDIPID1   NameSpace = "eu.europa.ec.eudi.pid.1"
+	// EUDILOYALTY NameSpace = "eu.europa.ec.eudi.loyalty.1"
 )
 
 type ElementIdentifier string
@@ -79,6 +81,8 @@ var (
 	EudiAdministrativeNumber ElementIdentifier = "administrative_number"
 	EudiIssuingCountry       ElementIdentifier = "issuing_country"
 	EudiIssuingJurisdiction  ElementIdentifier = "issuing_jurisdiction"
+
+	// EudiLoyaltyEmailAddress ElementIdentifier = "email_address"
 )
 
 //

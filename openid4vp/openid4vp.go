@@ -40,6 +40,7 @@ type AuthorizationResponse struct {
 	IDToken                string                 `json:"id_token"`
 	State                  string                 `json:"state"`
 	PresentationSubmission PresentationSubmission `json:"presentation_submission"`
+	Audience               string                 `json:"aud"`
 
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6.1.2
 	APV string
