@@ -70,7 +70,8 @@ tunnels:
 ```
 * Environment
 ```
-export SERVER_DOMAIN="(server-sub-domain) "
+export SERVER_DOMAIN="(server-sub-domain)"
+export CLIENT_DOMAIN="(client-sub-domain)"
 ```
 
 * Launch ngrok on your laptop
