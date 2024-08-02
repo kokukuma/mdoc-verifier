@@ -48,8 +48,8 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: by valueの場合とby referenceの場合両方やってみるか？
 	jar := openid4vp.JWTSecuredAuthorizeRequest{
 		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
-		ClientID:          serverDomain,
-		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", serverDomain, session.ID), // request-id ?
+		ClientID:          s.serverDomain,
+		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", s.serverDomain, session.ID), // request-id ?
 	}
 
 	jsonResponse(w, struct {
@@ -70,11 +70,11 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 	// create authorize request
 	vpReq := openid4vp.AuthorizationRequest{
-		ClientID:       "fido-kokukuma.jp.ngrok.io",
+		ClientID:       s.serverDomain,
 		ClientIDScheme: "x509_san_dns",
 		ResponseType:   "vp_token",
 		ResponseMode:   "direct_post.jwt",
-		ResponseURI:    "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post",
+		ResponseURI:    fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain),
 		Nonce:          session.Nonce.String(),
 		State:          sessionID,
 
@@ -82,7 +82,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 		//       まぁどっちでもいい。
 		PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("mDL-request-demo"),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
-		ClientMetadata: openid4vp.CreateClientMetadata(),
+		ClientMetadata: openid4vp.CreateClientMetadata(s.serverDomain),
 	}
 
 	// create RequestObject
@@ -129,7 +129,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. get session_transcript
-	sessTrans, err := openid4vp.SessionTranscriptOID4VP([]byte(session.Nonce.String()), serverDomain, "https://fido-kokukuma.jp.ngrok.io/wallet/direct_post", ar.APU)
+	sessTrans, err := openid4vp.SessionTranscriptOID4VP([]byte(session.Nonce.String()), s.serverDomain, fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain), ar.APU)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to get sessTrans: %v", err), http.StatusBadRequest)
 		return
@@ -186,7 +186,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, struct {
 		RedirectURI string `json:"redirect_uri"`
 	}{
-		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io?session_id=%s", ar.State),
+		RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
 	}, http.StatusOK)
 }
 

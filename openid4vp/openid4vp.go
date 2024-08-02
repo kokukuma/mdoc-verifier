@@ -2,6 +2,7 @@ package openid4vp
 
 import (
 	"encoding/base64"
+	"fmt"
 
 	cf "github.com/kokukuma/mdoc-verifier/credential_data"
 )
@@ -52,13 +53,13 @@ type PresentationSubmission struct {
 	DescriptorMap interface{} `json:"descriptor_map"`
 }
 
-func CreateClientMetadata() ClientMetadata {
+func CreateClientMetadata(serverDomain string) ClientMetadata {
 	return ClientMetadata{
 		AuthorizationEncryptedResopnseAlg: "ECDH-ES",
 		AuthorizationEncryptedResopnseEnc: "A128CBC-HS256",
 		IDTokenEncryptedResponseAlg:       "RSA-OAEP-256",
 		IDTokenEncryptedResponseEnc:       "A128CBC-HS256",
-		JwksURI:                           "https://fido-kokukuma.jp.ngrok.io/wallet/jwks.json",
+		JwksURI:                           fmt.Sprintf("https://%s/wallet/jwks.json", serverDomain),
 		SubjectSyntaxTypesSupported:       []string{"urn:ietf:params:oauth:jwk-thumbprint"},
 		IDTokenSignedResponseAlg:          "RS256",
 	}

@@ -32,7 +32,6 @@ var (
 	merchantID          = "PassKit_Identity_Test_Merchant_ID"
 	teamID              = "PassKit_Identity_Test_Team_ID"
 	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
-	serverDomain        = os.Getenv("SERVER_DOMAIN")
 
 	// Which document and elements want to obtain.
 	RequiredElements = credential_data.Documents{
@@ -48,6 +47,15 @@ var (
 )
 
 func NewServer() *Server {
+	serverDomain := os.Getenv("SERVER_DOMAIN")
+	if serverDomain == "" {
+		panic("SERVER_DOMAIN is not set")
+	}
+	clientDomain := os.Getenv("CLIENT_DOMAIN")
+	if clientDomain == "" {
+		panic("CLIENT_DOMAIN is not set")
+	}
+
 	dir, err := filepath.Abs(filepath.Dir("."))
 	if err != nil {
 		panic("failed to load rootCerts: " + err.Error())
@@ -67,19 +75,23 @@ func NewServer() *Server {
 		panic("failed to load rootCerts: " + err.Error())
 	}
 	return &Server{
-		sessions:  NewSessions(),
-		sigKey:    sigKey,
-		encKey:    encKey,
-		certChain: certChain,
+		sessions:     NewSessions(),
+		sigKey:       sigKey,
+		encKey:       encKey,
+		certChain:    certChain,
+		serverDomain: serverDomain,
+		clientDomain: clientDomain,
 	}
 }
 
 type Server struct {
-	mu        sync.RWMutex
-	sessions  *Sessions
-	sigKey    *ecdsa.PrivateKey
-	encKey    *ecdsa.PrivateKey
-	certChain []string
+	mu           sync.RWMutex
+	sessions     *Sessions
+	sigKey       *ecdsa.PrivateKey
+	encKey       *ecdsa.PrivateKey
+	certChain    []string
+	serverDomain string
+	clientDomain string
 }
 
 type GetRequest struct {
