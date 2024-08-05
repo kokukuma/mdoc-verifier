@@ -22,19 +22,19 @@ var (
 				document.IsoFamilyName,
 				document.IsoGivenName,
 				document.IsoBirthDate,
-				document.IsoDocumentNumber,
+				document.IsoIssuingCountry,
 			},
 		},
-		document.EudiPid: {
-			document.EUDIPID1: {
-				document.EudiFamilyName,
-			},
-		},
-		// document.EudiLoyalty: {
-		// 	document.EUDILOYALTY: {
-		// 		document.EudiLoyaltyEmailAddress,
+		// document.EudiPid: {
+		// 	document.EUDIPID1: {
+		// 		document.EudiFamilyName,
 		// 	},
 		// },
+		document.EudiLoyalty: {
+			document.EUDILOYALTY: {
+				document.EudiLoyaltyEmailAddress,
+			},
+		},
 	}
 )
 
@@ -197,8 +197,41 @@ type FinishIdentityRequest struct {
 func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := FinishIdentityRequest{}
 	if err := parseJSON(r, &req); err != nil {
-
 		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
+		return
+	}
+	if req.SessionID == "01764f36-7192-6638-73ae-361cb36685ff" {
+		resp := VerifyResponse{
+			Elements: []Element{
+				{
+					NameSpace:  document.ISO1801351,
+					Identifier: document.IsoGivenName,
+					Value:      "KKKKKK",
+				},
+				{
+					NameSpace:  document.ISO1801351,
+					Identifier: document.IsoBirthDate,
+					Value:      "TTTTTT",
+				},
+				{
+					NameSpace:  document.ISO1801351,
+					Identifier: document.IsoBirthDate,
+					Value:      "1886-01-21",
+				},
+				{
+					NameSpace:  document.ISO1801351,
+					Identifier: document.IsoIssuingCountry,
+					Value:      "JP",
+				},
+				{
+					NameSpace:  document.EUDILOYALTY,
+					Identifier: document.EudiLoyaltyEmailAddress,
+					Value:      "kkkkk.ttttt@example.com",
+				},
+			},
+		}
+		spew.Dump(resp)
+		jsonResponse(w, resp, http.StatusOK)
 		return
 	}
 
