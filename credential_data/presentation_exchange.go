@@ -8,23 +8,25 @@ type PresentationDefinition struct {
 }
 
 type InputDescriptor struct {
+	Name        string      `json:"name"`
 	ID          string      `json:"id"`
 	Format      Format      `json:"format"`
 	Constraints Constraints `json:"constraints"`
+	Purpose     string      `json:"purpose"`
 	// TODO:
 	SubmissionRequirements interface{} `json:"submission_requirements"`
 	Group                  []string    `json:"group"`
 }
 
 type Constraints struct {
-	LimitDisclosure string      `json:"limit_disclosure"`
-	Fields          []PathField `json:"fields"`
+	//	LimitDisclosure string      `json:"limit_disclosure"`
+	Fields []PathField `json:"fields"`
 }
 
 type Format struct {
-	MsoMdoc   MsoMdoc   `json:"mso_mdoc,omitempty"`
-	LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
-	JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
+	MsoMdoc MsoMdoc `json:"mso_mdoc,omitempty"`
+	// LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
+	// JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
 }
 
 type MsoMdoc struct {
@@ -40,9 +42,9 @@ type LdpVP struct {
 }
 
 type PathField struct {
-	Path           []string `json:"path"`
-	Filter         Filter   `json:"filter,omitempty"`
-	IntentToRetain bool     `json:"intent_to_retain"`
+	Path []string `json:"path"`
+	//	Filter         Filter   `json:"filter,omitempty"`
+	IntentToRetain bool `json:"intent_to_retain"`
 }
 
 type Filter struct {
