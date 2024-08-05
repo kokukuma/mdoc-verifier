@@ -17,24 +17,24 @@ import (
 
 var (
 	RequiredElementsEUDIW = credential_data.Documents{
-		document.IsoMDL: {
-			document.ISO1801351: {
-				document.IsoFamilyName,
-				document.IsoGivenName,
-				document.IsoBirthDate,
-				document.IsoDocumentNumber,
+		//document.IsoMDL: {
+		//	document.ISO1801351: {
+		//		document.IsoFamilyName,
+		//		document.IsoGivenName,
+		//		document.IsoBirthDate,
+		//		document.IsoDocumentNumber,
+		//	},
+		//},
+		//document.EudiPid: {
+		//	document.EUDIPID1: {
+		//		document.EudiFamilyName,
+		//	},
+		//},
+		document.EudiLoyalty: {
+			document.EUDILOYALTY: {
+				document.EudiLoyaltyEmailAddress,
 			},
 		},
-		document.EudiPid: {
-			document.EUDIPID1: {
-				document.EudiFamilyName,
-			},
-		},
-		// document.EudiLoyalty: {
-		// 	document.EUDILOYALTY: {
-		// 		document.EudiLoyaltyEmailAddress,
-		// 	},
-		// },
 	}
 )
 
@@ -70,7 +70,8 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 	// create authorize request
 	vpReq := openid4vp.AuthorizationRequest{
-		ClientID:       s.serverDomain,
+		ClientID: s.serverDomain,
+		//ClientID:       "verifier-backend.eudiw.dev",
 		ClientIDScheme: "x509_san_dns",
 		ResponseType:   "vp_token",
 		ResponseMode:   "direct_post.jwt",
@@ -81,6 +82,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
 		//       まぁどっちでもいい。
 		PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("mDL-request-demo"),
+		// PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("eu.europa.ec.eudi.loyalty.1"),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
 		ClientMetadata: openid4vp.CreateClientMetadata(s.serverDomain),
 	}
