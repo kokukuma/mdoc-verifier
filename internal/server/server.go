@@ -209,9 +209,17 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var sessTrans []byte
 	switch req.Protocol {
 	case "openid4vp":
-		sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+		// package nameはclientから取得するようにするか？
+		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+		if req.Origin != "" {
+			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+		}
 	case "preview":
-		sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
+		// package nameはclientから取得するようにするか？
+		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", session.GetPublicKeyHash())
+		if req.Origin != "" {
+			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
+		}
 	case "apple":
 		sessTrans, err = apple_hpke.SessionTranscript(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
 	}
