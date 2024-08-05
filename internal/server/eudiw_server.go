@@ -28,13 +28,16 @@ var (
 		document.EudiPid: {
 			document.EUDIPID1: {
 				document.EudiFamilyName,
+				document.EudiGivenName,
+				document.EudiBirthDate,
+				document.EudiIssuingCountry,
 			},
 		},
-		// document.EudiLoyalty: {
-		// 	document.EUDILOYALTY: {
-		// 		document.EudiLoyaltyEmailAddress,
-		// 	},
-		// },
+		document.EudiLoyalty: {
+			document.EUDILOYALTY: {
+				document.EudiLoyaltyEmailAddress,
+			},
+		},
 	}
 )
 
@@ -158,7 +161,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
-			// mdoc.SkipVerifyDeviceSigned(),
+			mdoc.SkipVerifyDeviceSigned(),
 			// mdoc.AllowSelfCert(),
 			// mdoc.SkipSignedDateValidation(),
 			// mdoc.WithCertCurrentTime(date),
