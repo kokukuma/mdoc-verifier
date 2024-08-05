@@ -19,8 +19,8 @@ type InputDescriptor struct {
 }
 
 type Constraints struct {
-	//	LimitDisclosure string      `json:"limit_disclosure"`
-	Fields []PathField `json:"fields"`
+	LimitDisclosure string      `json:"limit_disclosure,omitempty"`
+	Fields          []PathField `json:"fields"`
 }
 
 type Format struct {

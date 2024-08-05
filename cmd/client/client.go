@@ -27,6 +27,21 @@ func main() {
 		}
 	})
 
+	r.HandleFunc("/callback_to_native", func(w http.ResponseWriter, r *http.Request) {
+		// URLクエリパラメータからsessionIDを取得
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID == "" {
+			http.Error(w, "Missing sessionID", http.StatusBadRequest)
+			return
+		}
+
+		// リダイレクト先のURLを構築
+		redirectURL := "mercari://app/openEUDIWIdentify?session_id=" + sessionID
+
+		// リダイレクト
+		http.Redirect(w, r, redirectURL, http.StatusFound)
+	})
+
 	challenge := http.FileServer(http.Dir("./cmd/client/well-known/"))
 	r.PathPrefix("/.well-known/").Handler(http.StripPrefix("/.well-known/", challenge))
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./cmd/client/")))

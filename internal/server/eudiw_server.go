@@ -25,16 +25,16 @@ var (
 		// 		document.IsoIssuingCountry,
 		// 	},
 		// },
-		// document.EudiPid: {
-		// 	document.EUDIPID1: {
-		// 		document.EudiFamilyName,
-		// 	},
-		// },
-		document.EudiLoyalty: {
-			document.EUDILOYALTY: {
-				document.EudiLoyaltyEmailAddress,
+		document.EudiPid: {
+			document.EUDIPID1: {
+				document.EudiFamilyName,
 			},
 		},
+		// document.EudiLoyalty: {
+		// 	document.EUDILOYALTY: {
+		// 		document.EudiLoyaltyEmailAddress,
+		// 	},
+		// },
 	}
 )
 
@@ -158,6 +158,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
+			// mdoc.SkipVerifyDeviceSigned(),
 			// mdoc.AllowSelfCert(),
 			// mdoc.SkipSignedDateValidation(),
 			// mdoc.WithCertCurrentTime(date),
@@ -188,7 +189,9 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, struct {
 		RedirectURI string `json:"redirect_uri"`
 	}{
-		RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
+		// RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
+		// RedirectURI: fmt.Sprintf("mercari://app/openEUDIWIdentify?session_id=%s", ar.State),
+		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io/callback_to_native?session_id=%s", ar.State),
 	}, http.StatusOK)
 }
 

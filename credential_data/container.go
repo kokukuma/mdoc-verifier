@@ -28,51 +28,23 @@ func (d Documents) Selector() []Selector {
 }
 
 func (d Documents) PresentationDefinition(id string) PresentationDefinition {
-	pd := PresentationDefinition{
-		ID: id,
-		InputDescriptors: []InputDescriptor{
-			{
-				ID: "eu.europa.ec.eudi.loyalty.1",
-				// ID:      "eu.europa.ec.eudi.pid.1",
-				Name:    "EUDI PID",
-				Purpose: "We need to verify you are over 18 using your PID",
+	pd := PresentationDefinition{}
+	for docType, Namespaces := range d {
+		for ns, elems := range Namespaces {
+			pd.InputDescriptors = append(pd.InputDescriptors, InputDescriptor{
+				ID: string(docType),
 				Format: Format{
 					MsoMdoc: MsoMdoc{
-						Alg: []string{
-							"ES256",
-							"ES384",
-							"ES512",
-						},
+						Alg: []string{"ES256"},
 					},
 				},
 				Constraints: Constraints{
-					Fields: []PathField{
-						{
-							Path: []string{"$['eu.europa.ec.eudi.loyalty.1']['family_name']"},
-							// Path:           []string{"$['eu.europa.ec.eudi.pid.1']['family_name']"},
-							IntentToRetain: false,
-						},
-					},
+					LimitDisclosure: "required",
+					Fields:          FormatPathField(ns, true, elems...),
 				},
-			},
-		},
+			})
+		}
 	}
-	//	for docType, Namespaces := range d {
-	//		for ns, elems := range Namespaces {
-	//			pd.InputDescriptors = append(pd.InputDescriptors, InputDescriptor{
-	//				ID: string(docType),
-	//				Format: Format{
-	//					MsoMdoc: MsoMdoc{
-	//						Alg: []string{"ES256"},
-	//					},
-	//				},
-	//				Constraints: Constraints{
-	//					LimitDisclosure: "required",
-	//					Fields:          FormatPathField(ns, true, elems...),
-	//				},
-	//			})
-	//		}
-	//	}
 	return pd
 }
 
