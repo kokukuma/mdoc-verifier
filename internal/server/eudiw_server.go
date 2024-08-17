@@ -17,25 +17,20 @@ import (
 
 var (
 	RequiredElementsEUDIW = credential_data.Documents{
-		// document.IsoMDL: {
-		// 	document.ISO1801351: {
-		// 		document.IsoFamilyName,
-		// 		document.IsoGivenName,
-		// 		document.IsoBirthDate,
-		// 		document.IsoIssuingCountry,
-		// 	},
-		// },
+		document.IsoMDL: {
+			document.ISO1801351: {
+				document.IsoFamilyName,
+				document.IsoGivenName,
+				document.IsoBirthDate,
+				document.IsoIssuingCountry,
+			},
+		},
 		document.EudiPid: {
 			document.EUDIPID1: {
 				document.EudiFamilyName,
 				document.EudiGivenName,
 				document.EudiBirthDate,
 				document.EudiIssuingCountry,
-			},
-		},
-		document.EudiLoyalty: {
-			document.EUDILOYALTY: {
-				document.EudiLoyaltyEmailAddress,
 			},
 		},
 	}
