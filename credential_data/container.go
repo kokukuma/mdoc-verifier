@@ -28,9 +28,7 @@ func (d Documents) Selector() []Selector {
 }
 
 func (d Documents) PresentationDefinition(id string) PresentationDefinition {
-	pd := PresentationDefinition{
-		ID: id,
-	}
+	pd := PresentationDefinition{}
 	for docType, Namespaces := range d {
 		for ns, elems := range Namespaces {
 			pd.InputDescriptors = append(pd.InputDescriptors, InputDescriptor{

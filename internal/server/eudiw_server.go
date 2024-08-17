@@ -22,19 +22,17 @@ var (
 				document.IsoFamilyName,
 				document.IsoGivenName,
 				document.IsoBirthDate,
-				document.IsoDocumentNumber,
+				document.IsoIssuingCountry,
 			},
 		},
 		document.EudiPid: {
 			document.EUDIPID1: {
 				document.EudiFamilyName,
+				document.EudiGivenName,
+				document.EudiBirthDate,
+				document.EudiIssuingCountry,
 			},
 		},
-		// document.EudiLoyalty: {
-		// 	document.EUDILOYALTY: {
-		// 		document.EudiLoyaltyEmailAddress,
-		// 	},
-		// },
 	}
 )
 
@@ -156,6 +154,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
+			mdoc.SkipVerifyDeviceSigned(),
 			// mdoc.AllowSelfCert(),
 			// mdoc.SkipSignedDateValidation(),
 			// mdoc.WithCertCurrentTime(date),
@@ -186,6 +185,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, struct {
 		RedirectURI string `json:"redirect_uri"`
 	}{
+		// TODO: the redirect_uri should be obtained at the start endpoint and save it on session.
 		RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
 	}, http.StatusOK)
 }
@@ -197,7 +197,6 @@ type FinishIdentityRequest struct {
 func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := FinishIdentityRequest{}
 	if err := parseJSON(r, &req); err != nil {
-
 		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
 	}

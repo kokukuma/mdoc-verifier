@@ -8,16 +8,18 @@ type PresentationDefinition struct {
 }
 
 type InputDescriptor struct {
+	Name        string      `json:"name"`
 	ID          string      `json:"id"`
 	Format      Format      `json:"format"`
 	Constraints Constraints `json:"constraints"`
+	Purpose     string      `json:"purpose"`
 	// TODO:
 	SubmissionRequirements interface{} `json:"submission_requirements"`
 	Group                  []string    `json:"group"`
 }
 
 type Constraints struct {
-	LimitDisclosure string      `json:"limit_disclosure"`
+	LimitDisclosure string      `json:"limit_disclosure,omitempty"`
 	Fields          []PathField `json:"fields"`
 }
 
