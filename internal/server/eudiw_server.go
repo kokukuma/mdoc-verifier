@@ -73,8 +73,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 	// create authorize request
 	vpReq := openid4vp.AuthorizationRequest{
-		ClientID: s.serverDomain,
-		//ClientID:       "verifier-backend.eudiw.dev",
+		ClientID:       s.serverDomain,
 		ClientIDScheme: "x509_san_dns",
 		ResponseType:   "vp_token",
 		ResponseMode:   "direct_post.jwt",
@@ -85,7 +84,6 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
 		//       まぁどっちでもいい。
 		PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("mDL-request-demo"),
-		// PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("eu.europa.ec.eudi.loyalty.1"),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
 		ClientMetadata: openid4vp.CreateClientMetadata(s.serverDomain),
 	}
@@ -192,9 +190,8 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, struct {
 		RedirectURI string `json:"redirect_uri"`
 	}{
-		// RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
-		// RedirectURI: fmt.Sprintf("mercari://app/openEUDIWIdentify?session_id=%s", ar.State),
-		RedirectURI: fmt.Sprintf("https://client-kokukuma.jp.ngrok.io/callback_to_native?session_id=%s", ar.State),
+		// TODO: the redirect_uri should be obtained at the start endpoint and save it on session.
+		RedirectURI: fmt.Sprintf("https://%s?session_id=%s", s.clientDomain, ar.State),
 	}, http.StatusOK)
 }
 
@@ -206,40 +203,6 @@ func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := FinishIdentityRequest{}
 	if err := parseJSON(r, &req); err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
-		return
-	}
-	if req.SessionID == "01764f36-7192-6638-73ae-361cb36685ff" {
-		resp := VerifyResponse{
-			Elements: []Element{
-				{
-					NameSpace:  document.ISO1801351,
-					Identifier: document.IsoGivenName,
-					Value:      "KKKKKK",
-				},
-				{
-					NameSpace:  document.ISO1801351,
-					Identifier: document.IsoBirthDate,
-					Value:      "TTTTTT",
-				},
-				{
-					NameSpace:  document.ISO1801351,
-					Identifier: document.IsoBirthDate,
-					Value:      "1886-01-21",
-				},
-				{
-					NameSpace:  document.ISO1801351,
-					Identifier: document.IsoIssuingCountry,
-					Value:      "JP",
-				},
-				{
-					NameSpace:  document.EUDILOYALTY,
-					Identifier: document.EudiLoyaltyEmailAddress,
-					Value:      "kkkkk.ttttt@example.com",
-				},
-			},
-		}
-		spew.Dump(resp)
-		jsonResponse(w, resp, http.StatusOK)
 		return
 	}
 

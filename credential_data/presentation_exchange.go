@@ -24,9 +24,9 @@ type Constraints struct {
 }
 
 type Format struct {
-	MsoMdoc MsoMdoc `json:"mso_mdoc,omitempty"`
-	// LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
-	// JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
+	MsoMdoc   MsoMdoc   `json:"mso_mdoc,omitempty"`
+	LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
+	JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
 }
 
 type MsoMdoc struct {
@@ -42,9 +42,9 @@ type LdpVP struct {
 }
 
 type PathField struct {
-	Path []string `json:"path"`
-	//	Filter         Filter   `json:"filter,omitempty"`
-	IntentToRetain bool `json:"intent_to_retain"`
+	Path           []string `json:"path"`
+	Filter         Filter   `json:"filter,omitempty"`
+	IntentToRetain bool     `json:"intent_to_retain"`
 }
 
 type Filter struct {
