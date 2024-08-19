@@ -10,7 +10,7 @@ type PresentationDefinition struct {
 type InputDescriptor struct {
 	Name        string      `json:"name"`
 	ID          string      `json:"id"`
-	Format      Format      `json:"format"`
+	Format      Format      `json:"format,omitempty"`
 	Constraints Constraints `json:"constraints"`
 	Purpose     string      `json:"purpose"`
 	// TODO:
@@ -20,7 +20,7 @@ type InputDescriptor struct {
 
 type Constraints struct {
 	LimitDisclosure string      `json:"limit_disclosure,omitempty"`
-	Fields          []PathField `json:"fields"`
+	Fields          []PathField `json:"fields,omitempty"`
 }
 
 type Format struct {
@@ -30,15 +30,15 @@ type Format struct {
 }
 
 type MsoMdoc struct {
-	Alg []string `json:"alg"`
+	Alg []string `json:"alg,omitempty"`
 }
 
 type JwtVCJSON struct {
-	Alg []string `json:"alg"`
+	Alg []string `json:"alg,omitempty"`
 }
 
 type LdpVP struct {
-	ProofType []string `json:"proof_type"`
+	ProofType []string `json:"proof_type,omitempty"`
 }
 
 type PathField struct {
@@ -48,6 +48,6 @@ type PathField struct {
 }
 
 type Filter struct {
-	Type    string `json:"type"`
-	Pattern string `json:"pattern"`
+	Type    string `json:"type,omitempty"`
+	Pattern string `json:"pattern,omitempty"`
 }
