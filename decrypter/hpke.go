@@ -1,4 +1,4 @@
-package hpke
+package decrypter
 
 import (
 	"crypto/ecdh"
