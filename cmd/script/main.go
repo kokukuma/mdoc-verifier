@@ -14,6 +14,7 @@ import (
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
+	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
 var (
@@ -58,7 +59,7 @@ func init() {
 
 func main() {
 	// sessTrans will be used to decrypt HPKEEnvelope and mdoc verification.
-	sessTrans, err := apple_hpke.SessionTranscript(merchantID, teamID, nonce, hash.Digest(privKey.PublicKey().Bytes(), "SHA-256"))
+	sessTrans, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonce, hash.Digest(privKey.PublicKey().Bytes(), "SHA-256"))
 	if err != nil {
 		panic("failed to get session transcript: " + err.Error())
 	}

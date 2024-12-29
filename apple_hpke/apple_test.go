@@ -12,6 +12,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
+	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
 var (
@@ -77,7 +78,7 @@ func TestParseDeviceResponse(t *testing.T) {
 
 	publicKeyByte := privKey.PublicKey().Bytes()
 
-	sessTrans, _ := SessionTranscript(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
+	sessTrans, _ := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
 
 	t.Run("ParseApple", func(t *testing.T) {
 		deviceResp, err := ParseDataToDeviceResp(sampleHpkeEnvelope, privKey, sessTrans)
@@ -103,7 +104,7 @@ func TestGenerateAppleSessionTranscript(t *testing.T) {
 	publicKeyByte := privKey.PublicKey().Bytes()
 
 	t.Run("generateAppleSessionTranscript", func(t *testing.T) {
-		actual, err := SessionTranscript(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
+		actual, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
