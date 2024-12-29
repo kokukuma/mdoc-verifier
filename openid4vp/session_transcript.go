@@ -10,8 +10,6 @@ import (
 
 // TODO: session transcript: 9.1.5.1 Session transcript
 
-const BROWSER_HANDOVER_V1 = "BrowserHandoverv1"
-
 type OriginInfo struct {
 	Cat     int     `json:"cat"`
 	Type    int     `json:"type"`
@@ -21,6 +19,8 @@ type OriginInfo struct {
 type Details struct {
 	BaseURL string `json:"baseUrl"`
 }
+
+const BROWSER_HANDOVER_V1 = "BrowserHandoverv1"
 
 func SessionTranscriptBrowser(nonce []byte, origin string, requesterIdHash []byte) ([]byte, error) {
 	originInfo := OriginInfo{

@@ -17,6 +17,7 @@ import (
 func ParseAuthzRespToDeviceResp(
 	ar *AuthorizationResponse,
 ) (*mdoc.DeviceResponse, error) {
+	// TODO: このpaddingありなのかなしなのか、すごく曖昧な状態になってる
 	// It must use nopadding ?
 	decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(ar.VPToken) // eudiw
 	if err != nil {

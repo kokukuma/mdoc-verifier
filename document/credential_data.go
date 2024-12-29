@@ -1,10 +1,9 @@
-package credential_data
+package document
 
 // https://github.com/WICG/digital-credentials
 
-import (
-	doc "github.com/kokukuma/mdoc-verifier/document"
-)
+// TODO: 沿ってるかどうか確認
+// https://wicg.github.io/digital-credentials/
 
 type IdentityRequest struct {
 	Selector        Selector `json:"selector"`
@@ -20,9 +19,9 @@ type Selector struct {
 }
 
 type Field struct {
-	Namespace      doc.NameSpace         `json:"namespace"`
-	Name           doc.ElementIdentifier `json:"name"`
-	IntentToRetain bool                  `json:"intentToRetain"`
+	Namespace      NameSpace         `json:"namespace"`
+	Name           ElementIdentifier `json:"name"`
+	IntentToRetain bool              `json:"intentToRetain"`
 }
 
 type Retention struct {

@@ -9,14 +9,13 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
-	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
 )
 
 var (
-	RequiredElementsEUDIW = credential_data.Documents{
+	RequiredElementsEUDIW = document.Elements{
 		document.IsoMDL: {
 			document.ISO1801351: {
 				document.IsoFamilyName,

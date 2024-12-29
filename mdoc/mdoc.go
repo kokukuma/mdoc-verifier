@@ -41,6 +41,10 @@ type Document struct {
 	Errors       Errors           `json:"errors"`
 }
 
+func (d *Document) GetElementValue(namespace document.NameSpace, elementIdentifier document.ElementIdentifier) (document.ElementValue, error) {
+	return d.IssuerSigned.GetElementValue(namespace, elementIdentifier)
+}
+
 type IssuerSigned struct {
 	NameSpaces IssuerNameSpaces          `json:"nameSpaces"`
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
