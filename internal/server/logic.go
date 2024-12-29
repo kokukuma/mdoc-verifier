@@ -2,13 +2,19 @@ package server
 
 import (
 	"github.com/kokukuma/mdoc-verifier/apple_hpke"
-	"github.com/kokukuma/mdoc-verifier/document"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/preview_hpke"
+	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
+
+type IdentityRequest struct {
+	Selector        doc.Selector `json:"selector"`
+	Nonce           string       `json:"nonce"`
+	ReaderPublicKey string       `json:"readerPublicKey"`
+}
 
 func createIDReq(req GetRequest, session *Session) interface{} {
 	var idReq interface{}
@@ -16,7 +22,7 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 	case "preview":
 		// MEMO: previewが生き残るのかどうか不明.
 		// エージさんのブログではopenid4vpだけしか言われてなかったし、消えそうな気はする
-		idReq = &document.IdentityRequest{
+		idReq = &IdentityRequest{
 			Selector:        RequiredElements.Selector()[0], // Identity Credential API only accept single selector ... ?
 			Nonce:           session.Nonce.String(),
 			ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
@@ -31,7 +37,7 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		}
 	case "apple":
 		// MEMO: Appleは実質Nonceだけだからそれほど気にしてないと言えばない.
-		idReq = &document.IdentityRequest{
+		idReq = &IdentityRequest{
 			Nonce: session.Nonce.String(),
 		}
 	}
@@ -46,18 +52,18 @@ func getSessionTranscript(req VerifyRequest, session *Session) ([]byte, error) {
 	switch req.Protocol {
 	case "openid4vp":
 		// package nameはclientから取得するようにするか？
-		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+		sessTrans, err = session_transcript.AndroidHandoverV1(session.GetNonceByte(), "com.android.mdl.appreader", hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
 		if req.Origin != "" {
-			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+			sessTrans, err = session_transcript.BrowserHandoverV1(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
 		}
 	case "preview":
 		// package nameはclientから取得するようにするか？
-		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", session.GetPublicKeyHash())
+		sessTrans, err = session_transcript.AndroidHandoverV1(session.GetNonceByte(), "com.android.mdl.appreader", session.GetPublicKeyHash())
 		if req.Origin != "" {
-			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
+			sessTrans, err = session_transcript.BrowserHandoverV1(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
 		}
 	case "apple":
-		sessTrans, err = apple_hpke.SessionTranscript(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
+		sessTrans, err = session_transcript.AppleHandoverV1(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
 	}
 	if err != nil {
 		return nil, err

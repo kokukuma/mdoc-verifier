@@ -12,6 +12,7 @@ import (
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
 var (
@@ -126,7 +127,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. get session_transcript
-	sessTrans, err := openid4vp.SessionTranscriptOID4VP([]byte(session.Nonce.String()), s.serverDomain, fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain), ar.APU)
+	sessTrans, err := session_transcript.OID4VPHandover([]byte(session.Nonce.String()), s.serverDomain, fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain), ar.APU)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to get sessTrans: %v", err), http.StatusBadRequest)
 		return

@@ -203,7 +203,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	for docType, namespaces := range RequiredElements {
 		doc, err := getVerifiedDoc(devResp, docType, sessTrans, verifierOptionsForDevelopment(req.Protocol))
 		if err != nil {
-			fmt.Printf("failed to get doc: %s", doc.DocType)
+			fmt.Printf("failed to get doc: %s: %v", docType, err)
 			continue
 		}
 

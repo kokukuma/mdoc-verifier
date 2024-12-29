@@ -21,6 +21,10 @@ func (d Elements) Selector() []Selector {
 	return selectors
 }
 
+func (d Elements) DCQL() {
+
+}
+
 func (d Elements) PresentationDefinition(id string) PresentationDefinition {
 	pd := PresentationDefinition{}
 	for docType, Namespaces := range d {
