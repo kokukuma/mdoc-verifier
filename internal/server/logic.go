@@ -1,12 +1,14 @@
 package server
 
 import (
-	"github.com/kokukuma/mdoc-verifier/apple_hpke"
+	"fmt"
+
+	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/decrypter"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/pkg/hash"
-	"github.com/kokukuma/mdoc-verifier/preview_hpke"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
@@ -81,12 +83,26 @@ func parseDeviceResponse(req VerifyRequest, session *Session, sessTrans []byte) 
 	case "openid4vp":
 		devResp, err = openid4vp.ParseDataToDeviceResp(req.Data)
 	case "preview":
-		devResp, err = preview_hpke.ParseDataToDeviceResp(req.Data, session.GetPrivateKey(), sessTrans)
+		if plaintext, err := decrypter.AndroidHPKE(req.Data, session.GetPrivateKey(), sessTrans); err != nil {
+			if plaintext, err := decrypter.AppleHPKE(plaintext, session.GetPrivateKey(), sessTrans); err != nil {
+				if err := cbor.Unmarshal(plaintext, &devResp); err != nil {
+					return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+				}
+			}
+		}
 	case "apple":
 		// This base64URL encoding is not in any spec, just depends on a client implementation.
 		decoded, err := b64.DecodeString(req.Data)
 		if err == nil {
-			devResp, err = apple_hpke.ParseDataToDeviceResp(decoded, session.GetPrivateKey(), sessTrans)
+			if plaintext, err := decrypter.AppleHPKE(decoded, session.GetPrivateKey(), sessTrans); err != nil {
+				topics := struct {
+					Identity *mdoc.DeviceResponse `json:"identity"`
+				}{}
+				if err := cbor.Unmarshal(plaintext, &topics); err != nil {
+					return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+				}
+				devResp = topics.Identity
+			}
 		}
 	}
 	if err != nil {

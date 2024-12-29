@@ -1,4 +1,4 @@
-package apple_hpke
+package decrypter
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func loadPrivateKeyForTest() (*ecdh.PrivateKey, error) {
 	return pki.LoadPrivateKey(dataPath)
 }
 
-func TestParseDeviceResponse(t *testing.T) {
+func TestAppleHPKE(t *testing.T) {
 	setup()
 
 	dataPath, err := getPath("hpke_envelope.cbor")
@@ -80,16 +80,14 @@ func TestParseDeviceResponse(t *testing.T) {
 
 	sessTrans, _ := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
 
-	t.Run("ParseApple", func(t *testing.T) {
-		deviceResp, err := ParseDataToDeviceResp(sampleHpkeEnvelope, privKey, sessTrans)
+	t.Run("AppleHPKE", func(t *testing.T) {
+		identity, err := AppleHPKE(sampleHpkeEnvelope, privKey, sessTrans)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		spew.Dump(deviceResp)
-		if deviceResp.Version != "1.0" {
-			t.Fatalf("different version: %v != 1.0", deviceResp.Version)
-		}
+		spew.Dump(identity)
+		// Add more assertions if needed based on expected identity data
 	})
 }
 

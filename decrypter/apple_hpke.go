@@ -50,14 +50,5 @@ func AppleHPKE(
 	if err != nil {
 		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}
-
-	topics := struct {
-		Identity []byte `json:"identity"`
-	}{}
-
-	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
-		return nil, fmt.Errorf("Error unmarshal cbor as Identity: %v", err)
-	}
-
-	return topics.Identity, nil
+	return plaintext, nil
 }

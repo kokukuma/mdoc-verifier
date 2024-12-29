@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kokukuma/mdoc-verifier/apple_hpke"
+	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/decrypter"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/pkg/hash"
@@ -65,10 +66,18 @@ func main() {
 	}
 
 	// Parse HPKEEnvelope into data model of ISO/IEC 18013-5
-	devResp, err := apple_hpke.ParseDataToDeviceResp(data, privKey, sessTrans)
+	plaintext, err := decrypter.AppleHPKE(data, privKey, sessTrans)
 	if err != nil {
 		panic("failed to parse device response: " + err.Error())
 	}
+
+	topics := struct {
+		Identity *mdoc.DeviceResponse `json:"identity"`
+	}{}
+	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
+		panic("failed to parse device response: " + err.Error())
+	}
+	devResp := topics.Identity
 
 	docIsoMDL, err := devResp.GetDocument(document.IsoMDL)
 	if err != nil {
