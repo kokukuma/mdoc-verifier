@@ -9,9 +9,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"github.com/kokukuma/mdoc-verifier/decrypter"
+	"github.com/kokukuma/mdoc-verifier/decrypter/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
@@ -113,7 +114,7 @@ func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
-	ar, err := openid4vp.ParseDirectPostJWT(r, s.encKey)
+	ar, err := decrypter.ParseDirectPostJWT(r, s.encKey)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -135,7 +136,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	spew.Dump(sessTrans)
 
 	// 2. parse mdoc device response
-	devResp, err := openid4vp.ParseAuthzRespToDeviceResp(ar)
+	devResp, err := decrypter.AuthzRespOpenID4VP(ar)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse device responsee: %v", err), http.StatusBadRequest)
 		return

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
 )
 
 type HPKEEnvelope struct {
@@ -32,7 +33,7 @@ func AppleHPKE(
 	data []byte,
 	privateKey *ecdh.PrivateKey,
 	sessTrans []byte,
-) ([]byte, error) {
+) (*mdoc.DeviceResponse, error) {
 	var claims HPKEEnvelope
 	if err := cbor.Unmarshal(data, &claims); err != nil {
 		return nil, fmt.Errorf("Error unmarshal cbor as HPKEEnvelope: %v", err)
@@ -50,5 +51,12 @@ func AppleHPKE(
 	if err != nil {
 		return nil, fmt.Errorf("Error DecryptHPKE: %v", err)
 	}
-	return plaintext, nil
+
+	topics := struct {
+		Identity *mdoc.DeviceResponse `json:"identity"`
+	}{}
+	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
+		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+	}
+	return topics.Identity, nil
 }

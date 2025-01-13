@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ecdh"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
@@ -9,11 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/decrypter"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
@@ -60,24 +59,17 @@ func init() {
 
 func main() {
 	// sessTrans will be used to decrypt HPKEEnvelope and mdoc verification.
-	sessTrans, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonce, hash.Digest(privKey.PublicKey().Bytes(), "SHA-256"))
+	hash := sha256.Sum256(privKey.PublicKey().Bytes())
+	sessTrans, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonce, hash[:])
 	if err != nil {
 		panic("failed to get session transcript: " + err.Error())
 	}
 
 	// Parse HPKEEnvelope into data model of ISO/IEC 18013-5
-	plaintext, err := decrypter.AppleHPKE(data, privKey, sessTrans)
+	devResp, err := decrypter.AppleHPKE(data, privKey, sessTrans)
 	if err != nil {
 		panic("failed to parse device response: " + err.Error())
 	}
-
-	topics := struct {
-		Identity *mdoc.DeviceResponse `json:"identity"`
-	}{}
-	if err := cbor.Unmarshal(plaintext, &topics); err != nil {
-		panic("failed to parse device response: " + err.Error())
-	}
-	devResp := topics.Identity
 
 	docIsoMDL, err := devResp.GetDocument(document.IsoMDL)
 	if err != nil {

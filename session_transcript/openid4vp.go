@@ -1,12 +1,17 @@
 package session_transcript
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 )
+
+func sha256Sum(b []byte) []byte {
+	hash := sha256.Sum256(b)
+	return hash[:]
+}
 
 // https://github.com/eu-digital-identity-wallet/eudi-lib-android-wallet-core/blob/327c006eeb256353a8ed064adb12487db1bd352c/wallet-core/src/main/java/eu/europa/ec/eudi/wallet/internal/Openid4VpUtils.kt#L26
 func OID4VPHandover(nonce []byte, clientID, responseURI, apu string) ([]byte, error) {
@@ -30,8 +35,8 @@ func OID4VPHandover(nonce []byte, clientID, responseURI, apu string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	clientIdHash := hash.Digest(clientIdToHash, "SHA-256")
-	responseURIHash := hash.Digest(responseUriToHash, "SHA-256")
+	clientIdHash := sha256Sum(clientIdToHash)
+	responseURIHash := sha256Sum(responseUriToHash)
 
 	// Create the final CBOR array
 	oid4vpHandover := []interface{}{

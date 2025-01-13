@@ -1,14 +1,12 @@
 package server
 
 import (
-	"fmt"
+	"crypto/sha256"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/decrypter"
+	"github.com/kokukuma/mdoc-verifier/decrypter/openid4vp"
 	doc "github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/openid4vp"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
@@ -54,9 +52,10 @@ func getSessionTranscript(req VerifyRequest, session *Session) ([]byte, error) {
 	switch req.Protocol {
 	case "openid4vp":
 		// package nameはclientから取得するようにするか？
-		sessTrans, err = session_transcript.AndroidHandoverV1(session.GetNonceByte(), "com.android.mdl.appreader", hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+		hash := sha256.Sum256([]byte("digital-credentials.dev"))
+		sessTrans, err = session_transcript.AndroidHandoverV1(session.GetNonceByte(), "com.android.mdl.appreader", hash[:])
 		if req.Origin != "" {
-			sessTrans, err = session_transcript.BrowserHandoverV1(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
+			sessTrans, err = session_transcript.BrowserHandoverV1(session.GetNonceByte(), req.Origin, hash[:])
 		}
 	case "preview":
 		// package nameはclientから取得するようにするか？
@@ -73,37 +72,22 @@ func getSessionTranscript(req VerifyRequest, session *Session) ([]byte, error) {
 	return sessTrans, nil
 }
 
-// TODO: 復号とParseは別にした方がいいな
 func parseDeviceResponse(req VerifyRequest, session *Session, sessTrans []byte) (*mdoc.DeviceResponse, error) {
 	var devResp *mdoc.DeviceResponse
 	var err error
 
-	// TODO: 復号とParseは別にした方がいいな
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = openid4vp.ParseDataToDeviceResp(req.Data)
+		devResp, err = decrypter.OpenID4VP(req.Data)
 	case "preview":
-		if plaintext, err := decrypter.AndroidHPKE(req.Data, session.GetPrivateKey(), sessTrans); err != nil {
-			if plaintext, err := decrypter.AppleHPKE(plaintext, session.GetPrivateKey(), sessTrans); err != nil {
-				if err := cbor.Unmarshal(plaintext, &devResp); err != nil {
-					return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
-				}
-			}
-		}
+		devResp, err = decrypter.AndroidHPKE(req.Data, session.GetPrivateKey(), sessTrans)
 	case "apple":
 		// This base64URL encoding is not in any spec, just depends on a client implementation.
 		decoded, err := b64.DecodeString(req.Data)
-		if err == nil {
-			if plaintext, err := decrypter.AppleHPKE(decoded, session.GetPrivateKey(), sessTrans); err != nil {
-				topics := struct {
-					Identity *mdoc.DeviceResponse `json:"identity"`
-				}{}
-				if err := cbor.Unmarshal(plaintext, &topics); err != nil {
-					return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
-				}
-				devResp = topics.Identity
-			}
+		if err != nil {
+			return nil, err
 		}
+		devResp, err = decrypter.AppleHPKE(decoded, session.GetPrivateKey(), sessTrans)
 	}
 	if err != nil {
 		return nil, err

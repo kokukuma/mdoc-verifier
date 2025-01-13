@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
 )
 
 var (
@@ -31,7 +32,7 @@ func AndroidHPKE(
 	data string,
 	privateKey *ecdh.PrivateKey,
 	sessTrans []byte,
-) ([]byte, error) {
+) (*mdoc.DeviceResponse, error) {
 	var msg PreviewData
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
@@ -51,5 +52,10 @@ func AndroidHPKE(
 	if err != nil {
 		return nil, fmt.Errorf("Error decryptAndroidHPKEV1: %v", err)
 	}
-	return plaintext, nil
+
+	var devResp *mdoc.DeviceResponse
+	if err := cbor.Unmarshal(plaintext, &devResp); err != nil {
+		return nil, fmt.Errorf("Error unmarshal cbor string: %v", err)
+	}
+	return devResp, nil
 }

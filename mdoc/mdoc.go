@@ -5,8 +5,11 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
 	"fmt"
+	"hash"
 	"io"
 	"log"
 	"math/big"
@@ -14,7 +17,8 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/document"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
+
+	// "github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/veraison/go-cose"
 )
 
@@ -181,7 +185,17 @@ func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return hash.Digest(v, alg), nil
+
+	var hasher hash.Hash
+	switch alg {
+	case "SHA-256":
+		hasher = sha256.New()
+	case "SHA-512":
+		hasher = sha512.New()
+	}
+
+	hasher.Write(v)
+	return hasher.Sum(nil), nil
 }
 
 type IssuerSignedItem struct {

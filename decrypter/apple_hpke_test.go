@@ -3,6 +3,7 @@ package decrypter
 import (
 	"bytes"
 	"crypto/ecdh"
+	"crypto/sha256"
 	"encoding/hex"
 	"log"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
@@ -78,7 +78,7 @@ func TestAppleHPKE(t *testing.T) {
 
 	publicKeyByte := privKey.PublicKey().Bytes()
 
-	sessTrans, _ := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
+	sessTrans, _ := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, sha256Sum(publicKeyByte))
 
 	t.Run("AppleHPKE", func(t *testing.T) {
 		identity, err := AppleHPKE(sampleHpkeEnvelope, privKey, sessTrans)
@@ -89,6 +89,11 @@ func TestAppleHPKE(t *testing.T) {
 		spew.Dump(identity)
 		// Add more assertions if needed based on expected identity data
 	})
+}
+
+func sha256Sum(b []byte) []byte {
+	hash := sha256.Sum256(b)
+	return hash[:]
 }
 
 func TestGenerateAppleSessionTranscript(t *testing.T) {
@@ -102,15 +107,15 @@ func TestGenerateAppleSessionTranscript(t *testing.T) {
 	publicKeyByte := privKey.PublicKey().Bytes()
 
 	t.Run("generateAppleSessionTranscript", func(t *testing.T) {
-		actual, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, hash.Digest(publicKeyByte, "SHA-256"))
+		actual, err := session_transcript.AppleHandoverV1(merchantID, teamID, nonceByte, sha256Sum(publicKeyByte))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if sessionTranscript != hex.EncodeToString(actual) {
 			t.Fatalf("info is unmatched: %v != %v", sessionTranscript, string(actual))
 		}
-		if !bytes.Equal(infoHashByte, hash.Digest(actual, "SHA-256")) {
-			t.Fatalf("infohash is unmatched: %v != %v", infoHashByte, hash.Digest(actual, "SHA-256"))
+		if !bytes.Equal(infoHashByte, sha256Sum(actual)) {
+			t.Fatalf("infohash is unmatched: %v != %v", infoHashByte, sha256Sum(actual))
 		}
 	})
 }
@@ -126,7 +131,7 @@ func TestPublickey(t *testing.T) {
 	publicKeyByte := privKey.PublicKey().Bytes()
 
 	pubByteSample, _ := hex.DecodeString("b2c00f06b2df645691174f1331ade35141f17e19b3021d07560b4a71fc61818c")
-	if !bytes.Equal(pubByteSample, hash.Digest(publicKeyByte, "SHA-256")) {
+	if !bytes.Equal(pubByteSample, sha256Sum(publicKeyByte)) {
 		t.Fatalf("info is unmatched")
 	}
 }
