@@ -1,4 +1,4 @@
-package decrypter
+package decoder
 
 import (
 	"crypto/ecdsa"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kokukuma/mdoc-verifier/decrypter/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
 	"gopkg.in/square/go-jose.v2"
 )
 

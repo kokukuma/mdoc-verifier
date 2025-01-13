@@ -1,4 +1,4 @@
-package decrypter
+package decoder
 
 import (
 	"crypto/ecdh"

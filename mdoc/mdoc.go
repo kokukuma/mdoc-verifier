@@ -17,8 +17,6 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/document"
-
-	// "github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/veraison/go-cose"
 )
 

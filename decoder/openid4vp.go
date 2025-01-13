@@ -1,4 +1,4 @@
-package decrypter
+package decoder
 
 import (
 	"crypto/ecdsa"
@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/mdoc-verifier/decrypter/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"gopkg.in/square/go-jose.v2"
 )

@@ -16,7 +16,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
-	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -124,8 +123,8 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create session
-	// Only apple require to use applePrivateKeyPath, but that can be used for other protocols as well.
-	session, err := s.sessions.NewSession(applePrivateKeyPath) // MEMO: 何のために使う鍵？なんでAppleだけ？わからん...
+	// Just use applePrivateKeyPath as reciever private key for preview as well.
+	session, err := s.sessions.NewSession(applePrivateKeyPath)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
@@ -140,33 +139,6 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 
 	return
-}
-
-func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
-	var verifierOptions []mdoc.VerifierOption
-
-	switch protocol {
-	case "openid4vp":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-			mdoc.SkipVerifyCertificate(),
-		}
-	case "preview":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-			mdoc.SkipVerifyCertificate(),
-		}
-	case "apple":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.SkipVerifyDeviceSigned(),
-			mdoc.SkipVerifyCertificate(),
-			mdoc.SkipVerifyIssuerAuth(),
-			mdoc.SkipValidateCertification(),
-		}
-	}
-	return verifierOptions
 }
 
 func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) {
@@ -201,7 +173,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var resp VerifyResponse
 
 	for docType, namespaces := range RequiredElements {
-		doc, err := getVerifiedDoc(devResp, docType, sessTrans, verifierOptionsForDevelopment(req.Protocol))
+		doc, err := getVerifiedDoc(devResp, docType, sessTrans, req.Protocol)
 		if err != nil {
 			fmt.Printf("failed to get doc: %s: %v", docType, err)
 			continue

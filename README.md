@@ -8,10 +8,20 @@ This project is an mdoc/mDL (mobile driving license) verification compliant with
 
 ## Included Packages
 
-- `mdoc`: Provides mdoc data model and verification functionality
-- `apple_hpke`, `preview_hpke`, `openid4vp`: Offer session encryption capabilities for each protocol
-- `document`: Define the element identifiers for each doctype and namespace.
-- `server`: Example server demonstrating how to use the verifier
+* `decoder`: Provides decryption functionality for each protocol and parse to mdocResponse
+    * `apple_hpke`:  Decryption for Apple's Verify with Wallet API
+    * `android_hpke`: Decryption for Android's Identity Credential API (Preview)
+    * `openid4vp`: Decryption for OpenID4VP based Identity Credential API
+* `session_transcript`: Provides session transcript functionality for each protocol
+    * `apple`: Session transcript for Apple's Verify with Wallet API
+    * `android`: Session transcript for Android's Identity Credential API (Preview)
+    * `openid4vp`: Session transcript for OpenID4VP based Identity Credential API
+    * `browser`: Session transcript for browser's Identity Credential API
+* `document`: Define the element identifiers for each doctype and namespace.
+* `internal`: Contains internal packages
+    * `cryptoroot`: Provides certificate management
+    * `server`: Contains the code for the sample server
+* `mdoc`: Provides mdoc data model and verification functionality
 
 ## How to use for Apple's Verify with Wallet API
 - See [cmd/script/main.go](https://github.com/kokukuma/mdoc-verifier/blob/master/cmd/script/main.go)
@@ -59,7 +69,7 @@ $ ngrok config edit
 version: "2"
 authtoken: (token)
 tunnels:
-  fido-server:
+  id-server:
     addr: 8080
     proto: http
     subdomain: (server-sub-domain)

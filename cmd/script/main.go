@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kokukuma/mdoc-verifier/decrypter"
+	"github.com/kokukuma/mdoc-verifier/decoder"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
@@ -66,7 +66,7 @@ func main() {
 	}
 
 	// Parse HPKEEnvelope into data model of ISO/IEC 18013-5
-	devResp, err := decrypter.AppleHPKE(data, privKey, sessTrans)
+	devResp, err := decoder.AppleHPKE(data, privKey, sessTrans)
 	if err != nil {
 		panic("failed to parse device response: " + err.Error())
 	}
