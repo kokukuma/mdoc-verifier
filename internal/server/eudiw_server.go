@@ -9,14 +9,15 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
-	"github.com/kokukuma/mdoc-verifier/credential_data"
+	"github.com/kokukuma/mdoc-verifier/decoder"
+	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/openid4vp"
+	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
 var (
-	RequiredElementsEUDIW = credential_data.Documents{
+	RequiredElementsEUDIW = document.Elements{
 		document.IsoMDL: {
 			document.ISO1801351: {
 				document.IsoFamilyName,
@@ -113,7 +114,7 @@ func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
-	ar, err := openid4vp.ParseDirectPostJWT(r, s.encKey)
+	ar, err := decoder.ParseDirectPostJWT(r, s.encKey)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -127,7 +128,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. get session_transcript
-	sessTrans, err := openid4vp.SessionTranscriptOID4VP([]byte(session.Nonce.String()), s.serverDomain, fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain), ar.APU)
+	sessTrans, err := session_transcript.OID4VPHandover([]byte(session.Nonce.String()), s.serverDomain, fmt.Sprintf("https://%s/wallet/direct_post", s.serverDomain), ar.APU)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to get sessTrans: %v", err), http.StatusBadRequest)
 		return
@@ -135,7 +136,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	spew.Dump(sessTrans)
 
 	// 2. parse mdoc device response
-	devResp, err := openid4vp.ParseAuthzRespToDeviceResp(ar)
+	devResp, err := decoder.AuthzRespOpenID4VP(ar)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse device responsee: %v", err), http.StatusBadRequest)
 		return

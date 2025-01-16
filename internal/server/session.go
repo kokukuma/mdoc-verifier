@@ -3,12 +3,12 @@ package server
 import (
 	"crypto/ecdh"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -90,7 +90,8 @@ func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
 }
 
 func (s *Session) GetPublicKeyHash() []byte {
-	return hash.Digest(s.PrivateKey.PublicKey().Bytes(), "SHA-256")
+	hash := sha256.Sum256(s.PrivateKey.PublicKey().Bytes())
+	return hash[:]
 }
 
 func newSession(privKeyPath string) (*Session, error) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -79,4 +80,18 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestGetDocument(t *testing.T) {
+	docType := document.DocType("testDoc")
+	doc := Document{DocType: docType}
+	resp := DeviceResponse{Documents: []Document{doc}}
+
+	retrievedDoc, err := resp.GetDocument(docType)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if retrievedDoc.DocType != docType {
+		t.Fatalf("Expected docType %v, got %v", docType, retrievedDoc.DocType)
+	}
 }

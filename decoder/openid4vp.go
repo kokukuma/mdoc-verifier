@@ -1,4 +1,4 @@
-package openid4vp
+package decoder
 
 import (
 	"crypto/ecdsa"
@@ -10,13 +10,15 @@ import (
 	"net/url"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"gopkg.in/square/go-jose.v2"
 )
 
-func ParseAuthzRespToDeviceResp(
-	ar *AuthorizationResponse,
+func AuthzRespOpenID4VP(
+	ar *openid4vp.AuthorizationResponse,
 ) (*mdoc.DeviceResponse, error) {
+	// TODO: このpaddingありなのかなしなのか、すごく曖昧な状態になってる
 	// It must use nopadding ?
 	decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(ar.VPToken) // eudiw
 	if err != nil {
@@ -33,16 +35,16 @@ func ParseAuthzRespToDeviceResp(
 	return &claims, nil
 }
 
-func ParseDataToDeviceResp(data string) (*mdoc.DeviceResponse, error) {
-	var msg AuthorizationResponse
+func OpenID4VP(data string) (*mdoc.DeviceResponse, error) {
+	var msg openid4vp.AuthorizationResponse
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}
 
-	return ParseAuthzRespToDeviceResp(&msg)
+	return AuthzRespOpenID4VP(&msg)
 }
 
-func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*AuthorizationResponse, error) {
+func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*openid4vp.AuthorizationResponse, error) {
 	response, state, err := extractResponseAndState(r)
 	if err != nil {
 		return nil, err
@@ -58,7 +60,7 @@ func ParseDirectPostJWT(r *http.Request, encKey *ecdsa.PrivateKey) (*Authorizati
 		return nil, err
 	}
 
-	var msg AuthorizationResponse
+	var msg openid4vp.AuthorizationResponse
 	if err := json.Unmarshal(decrypted, &msg); err != nil {
 		return nil, fmt.Errorf("failed to parse data as JSON")
 	}

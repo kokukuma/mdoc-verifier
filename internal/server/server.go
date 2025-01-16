@@ -14,15 +14,9 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kokukuma/mdoc-verifier/apple_hpke"
-	"github.com/kokukuma/mdoc-verifier/credential_data"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
-	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/openid4vp"
-	"github.com/kokukuma/mdoc-verifier/pkg/hash"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
-	"github.com/kokukuma/mdoc-verifier/preview_hpke"
 )
 
 var (
@@ -34,7 +28,7 @@ var (
 	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
 
 	// Which document and elements want to obtain.
-	RequiredElements = credential_data.Documents{
+	RequiredElements = document.Elements{
 		document.IsoMDL: {
 			document.ISO1801351: {
 				document.IsoFamilyName,
@@ -129,7 +123,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create session
-	// Only apple require to use applePrivateKeyPath, but that can be used for other protocols as well.
+	// Just use applePrivateKeyPath as reciever private key for preview as well.
 	session, err := s.sessions.NewSession(applePrivateKeyPath)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
@@ -137,27 +131,7 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create request
-	var idReq interface{}
-	switch req.Protocol {
-	case "preview":
-		idReq = &credential_data.IdentityRequest{
-			Selector:        RequiredElements.Selector()[0], // Identity Credential API only accept single selector ... ?
-			Nonce:           session.Nonce.String(),
-			ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
-		}
-	case "openid4vp":
-		idReq = &openid4vp.AuthorizationRequest{
-			ClientID:               "digital-credentials.dev",
-			ClientIDScheme:         "web-origin",
-			ResponseType:           "vp_token",
-			Nonce:                  session.Nonce.String(),
-			PresentationDefinition: RequiredElements.PresentationDefinition("mDL-request-demo"),
-		}
-	case "apple":
-		idReq = &credential_data.IdentityRequest{
-			Nonce: session.Nonce.String(),
-		}
-	}
+	idReq := createIDReq(req, session)
 
 	jsonResponse(w, GetResponse{
 		SessionID: session.ID,
@@ -165,31 +139,6 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 
 	return
-}
-
-func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
-	var verifierOptions []mdoc.VerifierOption
-
-	switch protocol {
-	case "openid4vp":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-		}
-	case "preview":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-		}
-	case "apple":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.SkipVerifyDeviceSigned(),
-			mdoc.SkipVerifyCertificate(),
-			mdoc.SkipVerifyIssuerAuth(),
-			mdoc.SkipValidateCertification(),
-		}
-	}
-	return verifierOptions
 }
 
 func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) {
@@ -206,43 +155,14 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 1. get session_transcript
-	var sessTrans []byte
-	switch req.Protocol {
-	case "openid4vp":
-		// package nameはclientから取得するようにするか？
-		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
-		if req.Origin != "" {
-			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, hash.Digest([]byte("digital-credentials.dev"), "SHA-256"))
-		}
-	case "preview":
-		// package nameはclientから取得するようにするか？
-		sessTrans, err = preview_hpke.SessionTranscript(session.GetNonceByte(), "com.android.mdl.appreader", session.GetPublicKeyHash())
-		if req.Origin != "" {
-			sessTrans, err = openid4vp.SessionTranscriptBrowser(session.GetNonceByte(), req.Origin, session.GetPublicKeyHash())
-		}
-	case "apple":
-		sessTrans, err = apple_hpke.SessionTranscript(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
-	}
+	sessTrans, err := getSessionTranscript(req, session)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to get session transcript: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// 2. prase request to mdoc device response
-	var devResp *mdoc.DeviceResponse
-
-	switch req.Protocol {
-	case "openid4vp":
-		devResp, err = openid4vp.ParseDataToDeviceResp(req.Data)
-	case "preview":
-		devResp, err = preview_hpke.ParseDataToDeviceResp(req.Data, session.GetPrivateKey(), sessTrans)
-	case "apple":
-		// This base64URL encoding is not in any spec, just depends on a client implementation.
-		decoded, err := b64.DecodeString(req.Data)
-		if err == nil {
-			devResp, err = apple_hpke.ParseDataToDeviceResp(decoded, session.GetPrivateKey(), sessTrans)
-		}
-	}
+	devResp, err := parseDeviceResponse(req, session, sessTrans)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse reqest: %v", err), http.StatusBadRequest)
 		return
@@ -253,21 +173,15 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var resp VerifyResponse
 
 	for docType, namespaces := range RequiredElements {
-		doc, err := devResp.GetDocument(docType)
+		doc, err := getVerifiedDoc(devResp, docType, sessTrans, req.Protocol)
 		if err != nil {
-			fmt.Printf("document not found: %s", doc.DocType)
+			fmt.Printf("failed to get doc: %s: %v", docType, err)
 			continue
-		}
-
-		// set verifier options mainly because there is no legitimate wallet for now.
-		if err := mdoc.NewVerifier(roots, verifierOptionsForDevelopment(req.Protocol)...).Verify(doc, sessTrans); err != nil {
-			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
-			return
 		}
 
 		for namespace, elemNames := range namespaces {
 			for _, elemName := range elemNames {
-				elemValue, err := doc.IssuerSigned.GetElementValue(namespace, elemName)
+				elemValue, err := doc.GetElementValue(namespace, elemName)
 				if err != nil {
 					fmt.Printf("element not found: %s", elemName)
 					continue

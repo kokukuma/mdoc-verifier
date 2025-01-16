@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	cf "github.com/kokukuma/mdoc-verifier/credential_data"
+	"github.com/kokukuma/mdoc-verifier/document"
 )
 
 var (
@@ -14,16 +14,16 @@ var (
 // https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 
 type AuthorizationRequest struct {
-	ClientID               string                    `json:"client_id"`
-	ClientIDScheme         string                    `json:"client_id_scheme"`
-	ResponseType           string                    `json:"response_type"`
-	Nonce                  string                    `json:"nonce"`
-	PresentationDefinition cf.PresentationDefinition `json:"presentation_definition"`
-	ResponseURI            string                    `json:"response_uri"`
-	ResponseMode           string                    `json:"response_mode"`
-	Scope                  string                    `json:"scope"`
-	State                  string                    `json:"state"`
-	ClientMetadata         ClientMetadata            `json:"client_metadata"`
+	ClientID               string                          `json:"client_id"`
+	ClientIDScheme         string                          `json:"client_id_scheme"`
+	ResponseType           string                          `json:"response_type"`
+	Nonce                  string                          `json:"nonce"`
+	PresentationDefinition document.PresentationDefinition `json:"presentation_definition"`
+	ResponseURI            string                          `json:"response_uri"`
+	ResponseMode           string                          `json:"response_mode"`
+	Scope                  string                          `json:"scope"`
+	State                  string                          `json:"state"`
+	ClientMetadata         ClientMetadata                  `json:"client_metadata"`
 }
 
 type ClientMetadata struct {

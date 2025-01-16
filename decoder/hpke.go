@@ -1,4 +1,4 @@
-package hpke
+package decoder
 
 import (
 	"crypto/ecdh"
@@ -7,7 +7,6 @@ import (
 	"github.com/cisco/go-hpke"
 )
 
-// func DecryptHPKE(claims *HPKEEnvelope, recipientPrivKey, info []byte) ([]byte, error) {
 func DecryptHPKE(data, pkEM, info []byte, privKey *ecdh.PrivateKey) ([]byte, error) {
 
 	// Initialize the HPKE context

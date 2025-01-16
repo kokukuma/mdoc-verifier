@@ -1,18 +1,12 @@
-package credential_data
+package document
 
 import (
 	"fmt"
-
-	doc "github.com/kokukuma/mdoc-verifier/document"
 )
 
-type Documents map[doc.DocType]map[doc.NameSpace][]doc.ElementIdentifier
+type Elements map[DocType]map[NameSpace][]ElementIdentifier
 
-func (d Documents) AddDocument(doc doc.DocType, ns doc.NameSpace, elems ...doc.ElementIdentifier) {
-	d[doc][ns] = elems
-}
-
-func (d Documents) Selector() []Selector {
+func (d Elements) Selector() []Selector {
 	var selectors []Selector
 	for docType, Namespaces := range d {
 		for ns, elems := range Namespaces {
@@ -27,7 +21,11 @@ func (d Documents) Selector() []Selector {
 	return selectors
 }
 
-func (d Documents) PresentationDefinition(id string) PresentationDefinition {
+func (d Elements) DCQL() {
+
+}
+
+func (d Elements) PresentationDefinition(id string) PresentationDefinition {
 	pd := PresentationDefinition{}
 	for docType, Namespaces := range d {
 		for ns, elems := range Namespaces {
@@ -48,7 +46,7 @@ func (d Documents) PresentationDefinition(id string) PresentationDefinition {
 	return pd
 }
 
-func FormatPathField(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier) []PathField {
+func FormatPathField(ns NameSpace, retain bool, ids ...ElementIdentifier) []PathField {
 	result := []PathField{}
 
 	for _, id := range ids {
@@ -60,7 +58,7 @@ func FormatPathField(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier
 	return result
 }
 
-func FormatFields(ns doc.NameSpace, retain bool, ids ...doc.ElementIdentifier) []Field {
+func FormatFields(ns NameSpace, retain bool, ids ...ElementIdentifier) []Field {
 	var fields []Field
 
 	for _, id := range ids {

@@ -1,4 +1,4 @@
-package preview_hpke
+package session_transcript
 
 import (
 	"fmt"
@@ -6,21 +6,9 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-const BROWSER_HANDOVER_V1 = "BrowserHandoverv1"
-
-type OriginInfo struct {
-	Cat     int     `json:"cat"`
-	Type    int     `json:"type"`
-	Details Details `json:"details"`
-}
-
-type Details struct {
-	BaseURL string `json:"baseUrl"`
-}
-
 const ANDROID_HANDOVER_V1 = "AndroidHandoverv1"
 
-func SessionTranscript(nonce []byte, packageName string, requesterIdHash []byte) ([]byte, error) {
+func AndroidHandoverV1(nonce []byte, packageName string, requesterIdHash []byte) ([]byte, error) {
 	// Create the AndroidHandover array
 	androidHandover := []interface{}{
 		ANDROID_HANDOVER_V1,
