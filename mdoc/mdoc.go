@@ -22,82 +22,99 @@ import (
 
 type DeviceResponse struct {
 	Version        string          `json:"version"`
-	Documents      []Document      `json:"documents"`
-	DocumentErrors []DocumentError `json:"documentErrors"`
+	Documents      []Document      `json:"documents,omitempty"`
+	DocumentErrors []DocumentError `json:"documentErrors,omitempty"`
 	Status         uint            `json:"status"`
 }
 
-func (d DeviceResponse) GetDocument(docType document.DocType) (Document, error) {
+func (d DeviceResponse) GetDocument(docType document.DocType) (*Document, error) {
 	for _, doc := range d.Documents {
 		if doc.DocType == docType {
-			return doc, nil
+			return &doc, nil
 		}
 	}
-	return Document{}, fmt.Errorf("failed to find doc: doctype=%s", docType)
+	return nil, fmt.Errorf("failed to find doc: doctype=%s", docType)
 }
 
 type Document struct {
 	DocType      document.DocType `json:"docType"`
 	IssuerSigned IssuerSigned     `json:"issuerSigned"`
 	DeviceSigned DeviceSigned     `json:"deviceSigned"`
-	Errors       Errors           `json:"errors"`
+	Errors       Errors           `json:"errors,omitempty"`
 }
 
 func (d *Document) GetElementValue(namespace document.NameSpace, elementIdentifier document.ElementIdentifier) (document.ElementValue, error) {
+	if d.DocType == "" {
+		return nil, fmt.Errorf("invalid document type")
+	}
 	return d.IssuerSigned.GetElementValue(namespace, elementIdentifier)
 }
 
 type IssuerSigned struct {
-	NameSpaces IssuerNameSpaces          `json:"nameSpaces"`
+	NameSpaces IssuerNameSpaces          `json:"nameSpaces,omitempty"`
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
 func (i *IssuerSigned) Alg() (cose.Algorithm, error) {
+	if i.IssuerAuth.Headers.Protected == nil {
+		return 0, fmt.Errorf("protected header is nil")
+	}
 	return i.IssuerAuth.Headers.Protected.Algorithm()
 }
 
 func (i *IssuerSigned) DocumentSigningKey() (*ecdsa.PublicKey, error) {
-	certificate, err := i.Certificate()
+	certificate, err := i.DSCertificate()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get X5CertificateChain: %v", err)
+		return nil, fmt.Errorf("Failed to get X5CertificateChain: %w", err)
 	}
 
 	documentSigningKey, ok := certificate.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("Failed to parseCertificates: %v", err)
+		return nil, fmt.Errorf("unexpected public key type: %T, expected *ecdsa.PublicKey", certificate.PublicKey)
 	}
 	return documentSigningKey, nil
 }
 
-func (i *IssuerSigned) Certificate() (*x509.Certificate, error) {
-	certificates, err := i.X5CertificateChain()
+func (i *IssuerSigned) DSCertificate() (*x509.Certificate, error) {
+	certificates, err := i.DSCertificateChain()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get X5CertificateChain: %v", err)
+		return nil, fmt.Errorf("Failed to get DSCertificateChain: %w", err)
+	}
+	if len(certificates) == 0 {
+		return nil, fmt.Errorf("no certificates in x5chain")
 	}
 	return certificates[0], nil
 }
 
-func (i *IssuerSigned) X5CertificateChain() ([]*x509.Certificate, error) {
+func (i *IssuerSigned) DSCertificateChain() ([]*x509.Certificate, error) {
+	if i.IssuerAuth.Headers.Unprotected == nil {
+		return nil, fmt.Errorf("missing unprotected headers")
+	}
 
 	rawX5Chain, ok := i.IssuerAuth.Headers.Unprotected[cose.HeaderLabelX5Chain]
 	if !ok {
-		return nil, fmt.Errorf("failed to get x5chain")
+		return nil, fmt.Errorf("x5chain not found in unprotected headers")
 	}
 
-	rawX5ChainBytes, ok := rawX5Chain.([][]byte)
-	if !ok {
-		rawX5ChainByte, ok := rawX5Chain.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("failed to get x5chain")
-		}
-		rawX5ChainBytes = append(rawX5ChainBytes, rawX5ChainByte)
+	var rawX5ChainBytes [][]byte
+	switch v := rawX5Chain.(type) {
+	case [][]byte:
+		rawX5ChainBytes = v
+	case []byte:
+		rawX5ChainBytes = [][]byte{v}
+	default:
+		return nil, fmt.Errorf("unexpected x5chain type: %T", rawX5Chain)
 	}
 
-	var certs []*x509.Certificate
+	if len(rawX5ChainBytes) == 0 {
+		return nil, fmt.Errorf("empty x5chain")
+	}
+
+	certs := make([]*x509.Certificate, 0, len(rawX5ChainBytes))
 	for _, certData := range rawX5ChainBytes {
 		cert, err := x509.ParseCertificate(certData)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing certificate: %v", err)
+			return nil, fmt.Errorf("error parsing certificate: %w", err)
 		}
 		certs = append(certs, cert)
 	}

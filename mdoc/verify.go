@@ -85,7 +85,7 @@ func NewVerifier(roots *x509.CertPool, opts ...VerifierOption) *Verifier {
 	return server
 }
 
-func (v *Verifier) Verify(doc Document, sessTrans []byte) error {
+func (v *Verifier) Verify(doc *Document, sessTrans []byte) error {
 	mso, err := doc.IssuerSigned.MobileSecurityObject()
 	if err != nil {
 		return fmt.Errorf("failed to get MobileSecurityObject")
@@ -131,7 +131,7 @@ func (v *Verifier) Verify(doc Document, sessTrans []byte) error {
 	return nil
 }
 
-func (v *Verifier) verifyDeviceSigned(mso *MobileSecurityObject, doc Document, sessionTranscript []byte) error {
+func (v *Verifier) verifyDeviceSigned(mso *MobileSecurityObject, doc *Document, sessionTranscript []byte) error {
 	if v.skipVerifyDeviceSigned {
 		return nil
 	}
@@ -232,7 +232,7 @@ func (v *Verifier) verifyCertificate(issuerSigned IssuerSigned) error {
 		return nil
 	}
 
-	certs, err := issuerSigned.X5CertificateChain()
+	certs, err := issuerSigned.DSCertificateChain()
 	if err != nil {
 		return fmt.Errorf("Failed to get X5CertificateChain: %v", err)
 	}
@@ -258,11 +258,11 @@ func (v *Verifier) verifyCertificate(issuerSigned IssuerSigned) error {
 	return nil
 }
 
-func (v *Verifier) validateCertification(mso *MobileSecurityObject, doc Document) error {
+func (v *Verifier) validateCertification(mso *MobileSecurityObject, doc *Document) error {
 	if v.skipValidateCertification {
 		return nil
 	}
-	certificate, err := doc.IssuerSigned.Certificate()
+	certificate, err := doc.IssuerSigned.DSCertificate()
 	if err != nil {
 		return fmt.Errorf("failed to get certificate: %v", err)
 	}

@@ -132,5 +132,5 @@ func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType doc.DocType, sessTrans
 	if err := mdoc.NewVerifier(roots, options...).Verify(doc, sessTrans); err != nil {
 		return nil, err
 	}
-	return &doc, nil
+	return doc, nil
 }
