@@ -104,17 +104,11 @@ func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
 	var verifierOptions []mdoc.VerifierOption
 
 	switch protocol {
-	case "openid4vp":
+	case "openid4vp", "preview":
 		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-			mdoc.SkipVerifyCertificate(),
-		}
-	case "preview":
-		verifierOptions = []mdoc.VerifierOption{
-			mdoc.AllowSelfCert(),
-			mdoc.SkipSignedDateValidation(),
-			mdoc.SkipVerifyCertificate(),
+			// mdoc.AllowSelfCert(),
+			// mdoc.SkipSignedDateValidation(),
+			// mdoc.SkipVerifyCertificate(),
 		}
 	case "apple":
 		verifierOptions = []mdoc.VerifierOption{
