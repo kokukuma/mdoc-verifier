@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 	"math/big"
 	"time"
 
@@ -249,14 +248,17 @@ type MobileSecurityObject struct {
 }
 
 func (m *MobileSecurityObject) DeviceKey() (*ecdsa.PublicKey, error) {
+	if m == nil || m.DeviceKeyInfo.DeviceKey == nil {
+		return nil, fmt.Errorf("device key not available")
+	}
 	// TODO: algによって変えたほうが.
 	return parseECDSA(m.DeviceKeyInfo.DeviceKey)
 }
 
 type DeviceKeyInfo struct {
-	DeviceKey         COSEKey           `json:"deviceKey"`
-	KeyAuthorizations KeyAuthorizations `json:"keyAuthorizations,omitempty"`
-	KeyInfo           KeyInfo           `json:"keyInfo,omitempty"`
+	DeviceKey         *COSEKey           `json:"deviceKey"`
+	KeyAuthorizations *KeyAuthorizations `json:"keyAuthorizations,omitempty"`
+	KeyInfo           *KeyInfo           `json:"keyInfo,omitempty"`
 }
 
 type COSEKey struct {
@@ -272,8 +274,8 @@ type COSEKey struct {
 }
 
 type KeyAuthorizations struct {
-	NameSpaces   []string            `json:"nameSpaces,omitempty"`
-	DataElements map[string][]string `json:"dataElements,omitempty"`
+	NameSpaces   []document.NameSpace                                `cbor:"nameSpaces,omitempty"`
+	DataElements map[document.NameSpace][]document.ElementIdentifier `cbor:"dataElements,omitempty"`
 }
 
 type KeyInfo map[int]interface{}
@@ -289,35 +291,13 @@ type ValidityInfo struct {
 	ExpectedUpdate time.Time `json:"expectedUpdate,omitempty"`
 }
 
-type DigestID uint
+type DigestID uint32
 
 type Digest []byte
 
 type DeviceSigned struct {
-	NameSpaces DeviceNameSpacesBytes `json:"nameSpaces"`
-	DeviceAuth DeviceAuth            `json:"deviceAuth"`
-}
-
-func (d *DeviceSigned) Alg() (cose.Algorithm, error) {
-	return d.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
-}
-
-func (d *DeviceSigned) DeviceAuthenticationBytes(docType document.DocType, sessionTranscript []byte) ([]byte, error) {
-	deviceAuthentication := []interface{}{
-		"DeviceAuthentication",
-		cbor.RawMessage(sessionTranscript),
-		docType,
-		cbor.Tag{Number: 24, Content: d.NameSpaces},
-	}
-	da, err := cbor.Marshal(deviceAuthentication)
-	if err != nil {
-		return nil, fmt.Errorf("error encoding transcript: %v", err)
-	}
-	deviceAuthenticationByte, err := cbor.Marshal(cbor.Tag{Number: 24, Content: da})
-	if err != nil {
-		return nil, fmt.Errorf("failed to Marshal cbor %w", err)
-	}
-	return deviceAuthenticationByte, nil
+	NameSpaces *DeviceNameSpacesBytes `json:"nameSpaces"`
+	DeviceAuth *DeviceAuth            `json:"deviceAuth"`
 }
 
 type DeviceNameSpacesBytes cbor.RawMessage
@@ -326,11 +306,62 @@ type DeviceNameSpaces map[document.NameSpace]DeviceSignedItems
 
 type DeviceSignedItems map[document.ElementIdentifier]document.ElementValue
 
+func (d *DeviceSigned) Alg() (cose.Algorithm, error) {
+	if d == nil {
+		return 0, fmt.Errorf("device signed is nil")
+	}
+
+	if d.DeviceAuth.DeviceSignature.Headers.Protected == nil {
+		return 0, fmt.Errorf("protected headers not available")
+	}
+
+	return d.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
+}
+
+func (d *DeviceSigned) DeviceAuthenticationBytes(docType document.DocType, sessionTranscript []byte) ([]byte, error) {
+	if d == nil {
+		return nil, fmt.Errorf("device signed is nil")
+	}
+
+	if len(sessionTranscript) == 0 {
+		return nil, fmt.Errorf("session transcript is empty")
+	}
+
+	deviceAuthentication := []interface{}{
+		"DeviceAuthentication",
+		cbor.RawMessage(sessionTranscript),
+		docType,
+		cbor.Tag{Number: 24, Content: d.NameSpaces},
+	}
+
+	da, err := cbor.Marshal(deviceAuthentication)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal device authentication: %w", err)
+	}
+
+	deviceAuthenticationByte, err := cbor.Marshal(cbor.Tag{Number: 24, Content: da})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal tagged device authentication: %w", err)
+	}
+	return deviceAuthenticationByte, nil
+}
+
+func (d *DeviceSigned) DeviceNameSpaces() (DeviceNameSpaces, error) {
+	if d.NameSpaces == nil {
+		return nil, fmt.Errorf("device name spaces bytes is nil")
+	}
+
+	var nameSpaces DeviceNameSpaces
+	if err := cbor.Unmarshal(*d.NameSpaces, &nameSpaces); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal device name spaces: %w", err)
+	}
+
+	return nameSpaces, nil
+}
+
 type DeviceAuth struct {
-	// DeviceSignature cose.UntaggedSign1Message `json:"deviceSignature"`
-	// DeviceMac       cose.UntaggedSign1Message `json:"deviceMac"`
-	DeviceSignature UntaggedSign1Message `json:"deviceSignature"`
-	DeviceMac       UntaggedSign1Message `json:"deviceMac"`
+	DeviceSignature *UntaggedSign1Message `json:"deviceSignature,omitempty"`
+	DeviceMac       *UntaggedSign1Message `json:"deviceMac,omitempty"`
 }
 
 type DocumentError map[document.DocType]ErrorCode
@@ -341,42 +372,58 @@ type ErrorItems map[document.ElementIdentifier]ErrorCode
 
 type ErrorCode int
 
-func parseECDSA(coseKey COSEKey) (*ecdsa.PublicKey, error) {
-	// Extract the curve
+const (
+	P256          = 1
+	P384          = 2
+	P521          = 3
+	BrainpoolP256 = 8
+	BrainpoolP384 = 9
+	BrainpoolP512 = 10
+)
+
+func parseECDSA(coseKey *COSEKey) (*ecdsa.PublicKey, error) {
+	if coseKey == nil {
+		return nil, fmt.Errorf("cose key is nil")
+	}
+
 	var crv int
 	if err := cbor.Unmarshal(coseKey.CrvOrNOrK, &crv); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal curve: %w", err)
 	}
 
-	// Extract the X coordinate
 	var xBytes []byte
 	if err := cbor.Unmarshal(coseKey.XOrE, &xBytes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal X coordinate: %w", err)
 	}
 
-	// Extract the Y coordinate
 	var yBytes []byte
 	if err := cbor.Unmarshal(coseKey.Y, &yBytes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal Y coordinate: %w", err)
 	}
 
-	// Convert to ecdsa.PublicKey
-	var pubKey ecdsa.PublicKey
+	if len(xBytes) == 0 || len(yBytes) == 0 {
+		return nil, fmt.Errorf("invalid coordinates")
+	}
+
+	var curve elliptic.Curve
 	switch crv {
-	case 1: // Assuming 1 means P-256 curve
-		pubKey.Curve = elliptic.P256()
-	case 2: // Assuming 2 means P-384 curve
-		pubKey.Curve = elliptic.P384()
-	case 3: // Assuming 3 means P-521 curve
-		pubKey.Curve = elliptic.P521()
+	case P256: // RFC 8152 Table 21
+		curve = elliptic.P256()
+	case P384:
+		curve = elliptic.P384()
+	case P521:
+		curve = elliptic.P521()
 	default:
-		log.Fatalf("Unsupported curve: %v", crv)
+		return nil, fmt.Errorf("unsupported curve: %d", crv)
 	}
 
-	pubKey.X = new(big.Int).SetBytes(xBytes)
-	pubKey.Y = new(big.Int).SetBytes(yBytes)
+	pubKey := &ecdsa.PublicKey{
+		Curve: curve,
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
+	}
 
-	return &pubKey, nil
+	return pubKey, nil
 }
 
 // Appleのシミュレータが返す値がdevieSignature不完全な状態で返してくる。
