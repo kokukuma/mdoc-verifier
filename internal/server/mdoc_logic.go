@@ -5,15 +5,15 @@ import (
 
 	"github.com/kokukuma/mdoc-verifier/decoder"
 	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
-	doc "github.com/kokukuma/mdoc-verifier/document"
+	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
 type IdentityRequest struct {
-	Selector        doc.Selector `json:"selector"`
-	Nonce           string       `json:"nonce"`
-	ReaderPublicKey string       `json:"readerPublicKey"`
+	Selector        document.Selector `json:"selector"`
+	Nonce           string            `json:"nonce"`
+	ReaderPublicKey string            `json:"readerPublicKey"`
 }
 
 func createIDReq(req GetRequest, session *Session) interface{} {
@@ -119,7 +119,7 @@ func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
 	return verifierOptions
 }
 
-func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType doc.DocType, sessTrans []byte, protocol string) (*mdoc.Document, error) {
+func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType mdoc.DocType, sessTrans []byte, protocol string) (*mdoc.Document, error) {
 	doc, err := devResp.GetDocument(docType)
 	if err != nil {
 		return nil, err
