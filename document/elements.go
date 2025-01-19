@@ -2,9 +2,11 @@ package document
 
 import (
 	"fmt"
+
+	"github.com/kokukuma/mdoc-verifier/mdoc"
 )
 
-type Elements map[DocType]map[NameSpace][]ElementIdentifier
+type Elements map[mdoc.DocType]map[mdoc.NameSpace][]mdoc.ElementIdentifier
 
 func (d Elements) Selector() []Selector {
 	var selectors []Selector
@@ -46,7 +48,7 @@ func (d Elements) PresentationDefinition(id string) PresentationDefinition {
 	return pd
 }
 
-func FormatPathField(ns NameSpace, retain bool, ids ...ElementIdentifier) []PathField {
+func FormatPathField(ns mdoc.NameSpace, retain bool, ids ...mdoc.ElementIdentifier) []PathField {
 	result := []PathField{}
 
 	for _, id := range ids {
@@ -58,7 +60,7 @@ func FormatPathField(ns NameSpace, retain bool, ids ...ElementIdentifier) []Path
 	return result
 }
 
-func FormatFields(ns NameSpace, retain bool, ids ...ElementIdentifier) []Field {
+func FormatFields(ns mdoc.NameSpace, retain bool, ids ...mdoc.ElementIdentifier) []Field {
 	var fields []Field
 
 	for _, id := range ids {

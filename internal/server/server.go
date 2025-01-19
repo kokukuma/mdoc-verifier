@@ -16,6 +16,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
+	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -110,9 +111,9 @@ type VerifyResponse struct {
 }
 
 type Element struct {
-	NameSpace  document.NameSpace         `json:"namespace"`
-	Identifier document.ElementIdentifier `json:"identifier"`
-	Value      document.ElementValue      `json:"value"`
+	NameSpace  mdoc.NameSpace         `json:"namespace"`
+	Identifier mdoc.ElementIdentifier `json:"identifier"`
+	Value      mdoc.ElementValue      `json:"value"`
 }
 
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {

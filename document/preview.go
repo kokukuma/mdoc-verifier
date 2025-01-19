@@ -1,5 +1,7 @@
 package document
 
+import "github.com/kokukuma/mdoc-verifier/mdoc"
+
 // MEMO: ここに沿ってるだけ...
 // https://digital-credentials.dev/
 
@@ -11,9 +13,9 @@ type Selector struct {
 }
 
 type Field struct {
-	Namespace      NameSpace         `json:"namespace"`
-	Name           ElementIdentifier `json:"name"`
-	IntentToRetain bool              `json:"intentToRetain"`
+	Namespace      mdoc.NameSpace         `json:"namespace"`
+	Name           mdoc.ElementIdentifier `json:"name"`
+	IntentToRetain bool                   `json:"intentToRetain"`
 }
 
 type Retention struct {

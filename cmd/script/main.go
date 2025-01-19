@@ -81,7 +81,7 @@ func main() {
 		panic("failed to verify mdoc: " + err.Error())
 	}
 
-	for _, elemName := range []document.ElementIdentifier{
+	for _, elemName := range []mdoc.ElementIdentifier{
 		document.IsoFamilyName,
 		document.IsoGivenName,
 		document.IsoBirthDate,

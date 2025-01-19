@@ -10,7 +10,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -83,7 +82,7 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
-	docType := document.DocType("testDoc")
+	docType := DocType("testDoc")
 	doc := Document{DocType: docType}
 	resp := DeviceResponse{Documents: []Document{doc}}
 

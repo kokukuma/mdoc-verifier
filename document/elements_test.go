@@ -3,6 +3,8 @@ package document
 import (
 	"reflect"
 	"testing"
+
+	"github.com/kokukuma/mdoc-verifier/mdoc"
 )
 
 func TestElements_Selector(t *testing.T) {
@@ -58,8 +60,8 @@ func TestElements_PresentationDefinition(t *testing.T) {
 }
 
 func TestFormatPathField(t *testing.T) {
-	ns := NameSpace("namespace1")
-	ids := []ElementIdentifier{"elem1", "elem2"}
+	ns := mdoc.NameSpace("namespace1")
+	ids := []mdoc.ElementIdentifier{"elem1", "elem2"}
 
 	expected := []PathField{
 		{
@@ -79,8 +81,8 @@ func TestFormatPathField(t *testing.T) {
 }
 
 func TestFormatFields(t *testing.T) {
-	ns := NameSpace("namespace1")
-	ids := []ElementIdentifier{"elem1", "elem2"}
+	ns := mdoc.NameSpace("namespace1")
+	ids := []mdoc.ElementIdentifier{"elem1", "elem2"}
 
 	expected := []Field{
 		{
