@@ -155,9 +155,8 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
-			mdoc.SkipVerifyDeviceSigned(),
-			// mdoc.AllowSelfCert(),
-			// mdoc.SkipSignedDateValidation(),
+			mdoc.WithSkipVerifyDeviceSigned(),
+			// mdoc.WithSkipSignedDateValidation(),
 			// mdoc.WithCertCurrentTime(date),
 		).Verify(doc, sessTrans); err != nil {
 			jsonErrorResponse(w, fmt.Errorf("failed to verify mdoc: %v", err), http.StatusBadRequest)
@@ -166,7 +165,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 
 		for namespace, elemNames := range namespaces {
 			for _, elemName := range elemNames {
-				elemValue, err := doc.IssuerSigned.GetElementValue(namespace, elemName)
+				elemValue, err := doc.GetElementValue(namespace, elemName)
 				if err != nil {
 					fmt.Printf("element not found: %s", elemName)
 					continue

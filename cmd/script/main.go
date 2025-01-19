@@ -88,7 +88,7 @@ func main() {
 		document.IsoResidentCity,
 		document.IsoDocumentNumber,
 	} {
-		elemValue, err := docIsoMDL.IssuerSigned.GetElementValue(document.ISO1801351, elemName)
+		elemValue, err := docIsoMDL.GetElementValue(document.ISO1801351, elemName)
 		if err != nil {
 			panic("failed to get element: " + err.Error())
 		}
