@@ -47,7 +47,7 @@ func (d *Document) GetElementValue(namespace document.NameSpace, elementIdentifi
 	if d.DocType == "" {
 		return nil, fmt.Errorf("invalid document type")
 	}
-	return d.IssuerSigned.GetElementValue(namespace, elementIdentifier)
+	return d.IssuerSigned.getElementValue(namespace, elementIdentifier)
 }
 
 type IssuerSigned struct {
@@ -123,36 +123,43 @@ func (i *IssuerSigned) DSCertificateChain() ([]*x509.Certificate, error) {
 }
 
 func (i *IssuerSigned) MobileSecurityObject() (*MobileSecurityObject, error) {
-	var topLevelData interface{}
-	err := cbor.Unmarshal(i.IssuerAuth.Payload, &topLevelData)
+	if i.IssuerAuth.Payload == nil {
+		return nil, fmt.Errorf("missing payload")
+	}
+
+	var taggedData cbor.Tag
+	err := cbor.Unmarshal(i.IssuerAuth.Payload, &taggedData)
 	if err != nil {
-		return nil, fmt.Errorf("Error unmarshalling top level CBOR: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal tagged data: %w", err)
+	}
+
+	content, ok := taggedData.Content.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("unexpected content type: %T", taggedData.Content)
 	}
 
 	var mso MobileSecurityObject
-	if err := cbor.Unmarshal(topLevelData.(cbor.Tag).Content.([]byte), &mso); err != nil {
-		return nil, fmt.Errorf("Error unmarshal cbor string: %w", err)
+	if err := cbor.Unmarshal(content, &mso); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal MSO: %w", err)
 	}
+
 	return &mso, nil
 }
 
-func (i *IssuerSigned) GetElementValue(namespace document.NameSpace, elementIdentifier document.ElementIdentifier) (document.ElementValue, error) {
-	var itemBytes []IssuerSignedItemBytes
-
-	for ns, ib := range i.NameSpaces {
-		if ns == namespace {
-			itemBytes = ib
-		}
+func (i *IssuerSigned) getElementValue(namespace document.NameSpace, elementIdentifier document.ElementIdentifier) (document.ElementValue, error) {
+	if i.NameSpaces == nil {
+		return nil, fmt.Errorf("no namespaces available")
 	}
 
-	if itemBytes == nil {
-		return nil, fmt.Errorf("namespace not found")
+	itemBytes, exists := i.NameSpaces[namespace]
+	if !exists {
+		return nil, fmt.Errorf("namespace %s not found", namespace)
 	}
 
 	for _, ib := range itemBytes {
 		item, err := ib.IssuerSignedItem()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get issuer signed item: %w", err)
 		}
 		if item.ElementIdentifier == elementIdentifier {
 			if tag, ok := item.ElementValue.(cbor.Tag); ok {
@@ -161,55 +168,67 @@ func (i *IssuerSigned) GetElementValue(namespace document.NameSpace, elementIden
 			return item.ElementValue, nil
 		}
 	}
-
-	return nil, fmt.Errorf("element name not found")
+	return nil, fmt.Errorf("element %s not found in namespace %s", elementIdentifier, namespace)
 }
 
-func (i *IssuerSigned) IssuerSignedItems() (map[document.NameSpace][]IssuerSignedItem, error) {
-	items := map[document.NameSpace][]IssuerSignedItem{}
-
-	for ns, itemBytes := range i.NameSpaces {
-		for _, itemByte := range itemBytes {
-			item, err := itemByte.IssuerSignedItem()
-			if err != nil {
-				return nil, err
-			}
-			items[ns] = append(items[ns], item)
-		}
-	}
-	return items, nil
-}
+// func (i *IssuerSigned) IssuerSignedItems() (map[document.NameSpace][]IssuerSignedItem, error) {
+// 	items := map[document.NameSpace][]IssuerSignedItem{}
+//
+// 	for ns, itemBytes := range i.NameSpaces {
+// 		for _, itemByte := range itemBytes {
+// 			item, err := itemByte.IssuerSignedItem()
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			items[ns] = append(items[ns], item)
+// 		}
+// 	}
+// 	return items, nil
+// }
 
 type IssuerNameSpaces map[document.NameSpace][]IssuerSignedItemBytes
 
 type IssuerSignedItemBytes cbor.RawMessage
 
-func (i IssuerSignedItemBytes) IssuerSignedItem() (IssuerSignedItem, error) {
+func (i IssuerSignedItemBytes) IssuerSignedItem() (*IssuerSignedItem, error) {
+	if len(i) == 0 {
+		return nil, fmt.Errorf("empty issuer signed item bytes")
+	}
 	var item IssuerSignedItem
 	if err := cbor.Unmarshal(i, &item); err != nil {
-		return IssuerSignedItem{}, err
+		return nil, fmt.Errorf("failed to unmarshal issuer signed item: %w", err)
 	}
-	return item, nil
+	return &item, nil
 }
 
 func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
+	if i == nil {
+		return nil, fmt.Errorf("issuer signed item bytes is nil")
+	}
+
 	v, err := cbor.Marshal(cbor.Tag{
 		Number:  24,
 		Content: i,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal tagged CBOR: %w", err)
 	}
 
 	var hasher hash.Hash
 	switch alg {
 	case "SHA-256":
 		hasher = sha256.New()
+	case "SHA-384":
+		hasher = sha512.New384()
 	case "SHA-512":
 		hasher = sha512.New()
+	default:
+		return nil, fmt.Errorf("unsupported digest algorithm: %s", alg)
 	}
 
-	hasher.Write(v)
+	if _, err := hasher.Write(v); err != nil {
+		return nil, fmt.Errorf("failed to write to hasher: %w", err)
+	}
 	return hasher.Sum(nil), nil
 }
 

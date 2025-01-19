@@ -166,7 +166,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 
 		for namespace, elemNames := range namespaces {
 			for _, elemName := range elemNames {
-				elemValue, err := doc.IssuerSigned.GetElementValue(namespace, elemName)
+				elemValue, err := doc.GetElementValue(namespace, elemName)
 				if err != nil {
 					fmt.Printf("element not found: %s", elemName)
 					continue
