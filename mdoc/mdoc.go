@@ -53,7 +53,29 @@ func (d *Document) GetElementValue(namespace NameSpace, elementIdentifier Elemen
 	if d.DocType == "" {
 		return nil, fmt.Errorf("invalid document type")
 	}
-	return d.IssuerSigned.getElementValue(namespace, elementIdentifier)
+
+	if d.IssuerSigned.NameSpaces == nil {
+		return nil, fmt.Errorf("no namespaces available")
+	}
+
+	itemBytes, exists := d.IssuerSigned.NameSpaces[namespace]
+	if !exists {
+		return nil, fmt.Errorf("namespace %s not found", namespace)
+	}
+
+	for _, ib := range itemBytes {
+		item, err := ib.IssuerSignedItem()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get issuer signed item: %w", err)
+		}
+		if item.ElementIdentifier == elementIdentifier {
+			if tag, ok := item.ElementValue.(cbor.Tag); ok {
+				return tag.Content, nil
+			}
+			return item.ElementValue, nil
+		}
+	}
+	return nil, fmt.Errorf("element %s not found in namespace %s", elementIdentifier, namespace)
 }
 
 type IssuerSigned struct {
@@ -151,46 +173,6 @@ func (i *IssuerSigned) MobileSecurityObject() (*MobileSecurityObject, error) {
 
 	return &mso, nil
 }
-
-func (i *IssuerSigned) getElementValue(namespace NameSpace, elementIdentifier ElementIdentifier) (ElementValue, error) {
-	if i.NameSpaces == nil {
-		return nil, fmt.Errorf("no namespaces available")
-	}
-
-	itemBytes, exists := i.NameSpaces[namespace]
-	if !exists {
-		return nil, fmt.Errorf("namespace %s not found", namespace)
-	}
-
-	for _, ib := range itemBytes {
-		item, err := ib.IssuerSignedItem()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get issuer signed item: %w", err)
-		}
-		if item.ElementIdentifier == elementIdentifier {
-			if tag, ok := item.ElementValue.(cbor.Tag); ok {
-				return tag.Content, nil
-			}
-			return item.ElementValue, nil
-		}
-	}
-	return nil, fmt.Errorf("element %s not found in namespace %s", elementIdentifier, namespace)
-}
-
-// func (i *IssuerSigned) IssuerSignedItems() (map[document.NameSpace][]IssuerSignedItem, error) {
-// 	items := map[document.NameSpace][]IssuerSignedItem{}
-//
-// 	for ns, itemBytes := range i.NameSpaces {
-// 		for _, itemByte := range itemBytes {
-// 			item, err := itemByte.IssuerSignedItem()
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			items[ns] = append(items[ns], item)
-// 		}
-// 	}
-// 	return items, nil
-// }
 
 type IssuerNameSpaces map[NameSpace][]IssuerSignedItemBytes
 
