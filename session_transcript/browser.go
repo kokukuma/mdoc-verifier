@@ -21,6 +21,17 @@ type Details struct {
 const BROWSER_HANDOVER_V1 = "BrowserHandoverv1"
 
 func BrowserHandoverV1(nonce []byte, origin string, requesterIdHash []byte) ([]byte, error) {
+	// Input validation
+	if len(nonce) == 0 {
+		return nil, fmt.Errorf("nonce cannot be empty")
+	}
+	if origin == "" {
+		return nil, fmt.Errorf("origin cannot be empty")
+	}
+	if len(requesterIdHash) == 0 {
+		return nil, fmt.Errorf("requesterIdHash cannot be empty")
+	}
+
 	originInfo := OriginInfo{
 		Cat:  1,
 		Type: 1,
@@ -30,7 +41,7 @@ func BrowserHandoverV1(nonce []byte, origin string, requesterIdHash []byte) ([]b
 	}
 	originInfoBytes, err := cbor.Marshal(originInfo)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding origin info: %v", err)
+		return nil, fmt.Errorf("failed to encode origin info: %w", err)
 	}
 
 	// Create the final CBOR array
@@ -47,7 +58,7 @@ func BrowserHandoverV1(nonce []byte, origin string, requesterIdHash []byte) ([]b
 
 	transcript, err := cbor.Marshal(browserHandover)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding transcript: %v", err)
+		return nil, fmt.Errorf("failed to encode session transcript: %w", err)
 	}
 
 	return transcript, nil
