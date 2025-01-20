@@ -18,7 +18,8 @@ type AuthorizationRequest struct {
 	ClientIDScheme         string                          `json:"client_id_scheme"`
 	ResponseType           string                          `json:"response_type"`
 	Nonce                  string                          `json:"nonce"`
-	PresentationDefinition document.PresentationDefinition `json:"presentation_definition"`
+	PresentationDefinition document.PresentationDefinition `json:"presentation_definition,omitempty"`
+	DCQLQuery              document.DCQLQuery              `json:"dcql_query,omitempty"`
 	ResponseURI            string                          `json:"response_uri"`
 	ResponseMode           string                          `json:"response_mode"`
 	Scope                  string                          `json:"scope"`

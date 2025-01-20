@@ -29,11 +29,12 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		}
 	case "openid4vp":
 		idReq = &openid4vp.AuthorizationRequest{
-			ClientID:               "digital-credentials.dev",
-			ClientIDScheme:         "web-origin",
-			ResponseType:           "vp_token",
-			Nonce:                  session.Nonce.String(),
-			PresentationDefinition: RequiredElements.PresentationDefinition("mDL-request-demo"),
+			ClientID:       "digital-credentials.dev",
+			ClientIDScheme: "web-origin",
+			ResponseType:   "vp_token",
+			Nonce:          session.Nonce.String(),
+			// PresentationDefinition: RequiredElements.PresentationDefinition("mDL-request-demo"),
+			DCQLQuery: RequiredElements.DCQLQuery("mDL-request-demo"),
 		}
 	case "apple":
 		// MEMO: Apple is practically only Nonce so I wouldn't say they care that much.

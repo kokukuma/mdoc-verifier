@@ -23,8 +23,55 @@ func (d Elements) Selector() []Selector {
 	return selectors
 }
 
-func (d Elements) DCQL() {
+func (d Elements) DCQLQuery(id string) DCQLQuery {
+	query := DCQLQuery{
+		Credentials: make([]CredentialQuery, 0),
+	}
 
+	for docType, namespaces := range d {
+		for ns, elems := range namespaces {
+			claims := make([]ClaimQuery, len(elems))
+			for i, elem := range elems {
+				claims[i] = ClaimQuery{
+					ID:   fmt.Sprintf("%s_%s", ns, elem),
+					Path: []interface{}{string(ns), string(elem)},
+				}
+			}
+
+			credQuery := CredentialQuery{
+				ID:     string(docType),
+				Format: "mso_mdoc",
+				Meta: &MetaConstraints{
+					DocType: string(docType),
+					Additional: map[string]interface{}{
+						"alg": []string{"ES256"},
+					},
+				},
+				Claims: claims,
+			}
+
+			query.Credentials = append(query.Credentials, credQuery)
+		}
+	}
+
+	credentialIDs := make([]string, 0)
+	for docType := range d {
+		credentialIDs = append(credentialIDs, string(docType))
+	}
+
+	query.CredentialSets = []CredentialSetQuery{
+		{
+			Options:  [][]string{credentialIDs},
+			Required: ptr(true),
+		},
+	}
+
+	return query
+}
+
+// bool型のポインタを返すヘルパー関数
+func ptr(b bool) *bool {
+	return &b
 }
 
 func (d Elements) PresentationDefinition(id string) PresentationDefinition {
