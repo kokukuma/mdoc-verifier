@@ -19,7 +19,8 @@ type Credential struct {
 	Namespace         mdoc.NameSpace
 	ElementIdentifier []mdoc.ElementIdentifier
 	Retention         int
-	Required          bool
+	LimitDisclosure   string
+	Purpose           string
 }
 
 const (
@@ -48,6 +49,19 @@ func (c CredentialRequirement) Selector() []Selector {
 
 	}
 	return selectors
+}
+
+func FormatFields(ns mdoc.NameSpace, retain bool, ids ...mdoc.ElementIdentifier) []Field {
+	var fields []Field
+
+	for _, id := range ids {
+		fields = append(fields, Field{
+			Namespace:      ns,
+			Name:           id,
+			IntentToRetain: retain,
+		})
+	}
+	return fields
 }
 
 func (c CredentialRequirement) DCQLQuery() DCQLQuery {
@@ -102,11 +116,6 @@ func intentToRetain(retainDay int) bool {
 func (c CredentialRequirement) PresentationDefinition() PresentationDefinition {
 	pd := PresentationDefinition{}
 	for _, cred := range c.Credentials {
-		LimitDisclosure := "optional"
-		if cred.Required {
-			LimitDisclosure = "required"
-		}
-
 		pd.InputDescriptors = append(pd.InputDescriptors, InputDescriptor{
 			// ID: string(cred.DocType),
 			ID: cred.ID,
@@ -116,12 +125,13 @@ func (c CredentialRequirement) PresentationDefinition() PresentationDefinition {
 				},
 			},
 			Constraints: Constraints{
-				LimitDisclosure: LimitDisclosure,
+				LimitDisclosure: cred.LimitDisclosure,
 				Fields: FormatPathField(
 					cred.Namespace,
 					intentToRetain(cred.Retention),
 					cred.ElementIdentifier...),
 			},
+			Purpose: cred.Purpose,
 		})
 	}
 
@@ -138,17 +148,4 @@ func FormatPathField(ns mdoc.NameSpace, retain bool, ids ...mdoc.ElementIdentifi
 		})
 	}
 	return result
-}
-
-func FormatFields(ns mdoc.NameSpace, retain bool, ids ...mdoc.ElementIdentifier) []Field {
-	var fields []Field
-
-	for _, id := range ids {
-		fields = append(fields, Field{
-			Namespace:      ns,
-			Name:           id,
-			IntentToRetain: retain,
-		})
-	}
-	return fields
 }

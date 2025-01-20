@@ -44,8 +44,9 @@ var (
 					document.IsoIssuingCountry,
 					ageOver20,
 				},
-				Retention: 0,
-				Required:  false,
+				Retention:       0,
+				LimitDisclosure: "required",
+				Purpose:         "For KYC",
 			},
 			// {
 			// 	ID:        "agecheck",

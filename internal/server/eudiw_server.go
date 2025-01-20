@@ -29,8 +29,8 @@ var (
 					document.IsoBirthDate,
 					document.IsoIssuingCountry,
 				},
-				Retention: 90,
-				Required:  true,
+				Retention:       90,
+				LimitDisclosure: "required",
 			},
 			{
 				DocType:   document.EudiPid,
@@ -41,8 +41,8 @@ var (
 					document.EudiBirthDate,
 					document.EudiIssuingCountry,
 				},
-				Retention: 90,
-				Required:  true,
+				Retention:       90,
+				LimitDisclosure: "required",
 			},
 		},
 	}
