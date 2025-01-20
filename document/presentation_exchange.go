@@ -1,6 +1,5 @@
 package document
 
-// TODO: 沿ってるかどうか確認
 // https://identity.foundation/presentation-exchange/spec/v2.0.0/
 
 type PresentationDefinition struct {
@@ -30,7 +29,7 @@ type SubmissionRequirement struct {
 }
 
 type Constraints struct {
-	LimitDisclosure string        `json:"limit_disclosure,omitempty"`
+	LimitDisclosure string        `json:"limit_disclosure,omitempty" enum:"required,preferred"`
 	Fields          []PathField   `json:"fields,omitempty"`
 	Statuses        *Statuses     `json:"statuses,omitempty"`
 	SubjectIsIssuer string        `json:"subject_is_issuer,omitempty"`
@@ -85,7 +84,7 @@ type PathField struct {
 	Purpose        string   `json:"purpose,omitempty"`
 	Name           string   `json:"name,omitempty"`
 	Optional       bool     `json:"optional,omitempty"`
-	Predicate      string   `json:"predicate,omitempty"`
+	Predicate      string   `json:"predicate,omitempty" enum:"required,preferred"`
 }
 
 type Filter struct {

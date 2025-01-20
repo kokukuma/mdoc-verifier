@@ -27,39 +27,6 @@ var (
 	merchantID          = "PassKit_Identity_Test_Merchant_ID"
 	teamID              = "PassKit_Identity_Test_Team_ID"
 	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
-
-	ageOver20, _ = document.AgeOver(20)
-
-	CredentialRequirement = document.CredentialRequirement{
-		CredentialType: document.CredentialTypeMDOC,
-		Credentials: []document.Credential{
-			{
-				ID:        "mDL-request",
-				DocType:   document.IsoMDL,
-				Namespace: document.ISO1801351,
-				ElementIdentifier: []mdoc.ElementIdentifier{
-					document.IsoFamilyName,
-					document.IsoGivenName,
-					document.IsoBirthDate,
-					document.IsoIssuingCountry,
-					ageOver20,
-				},
-				Retention:       0,
-				LimitDisclosure: "required",
-				Purpose:         "For KYC",
-			},
-			// {
-			// 	ID:        "agecheck",
-			// 	DocType:   document.IsoMDL,
-			// 	Namespace: document.ISO1801351,
-			// 	ElementIdentifier: []mdoc.ElementIdentifier{
-			// 		ageOver20,
-			// 	},
-			// 	Retention: 0,
-			// 	Required:  true,
-			// },
-		},
-	}
 )
 
 func NewServer() *Server {
@@ -137,6 +104,40 @@ type Element struct {
 	Value      mdoc.ElementValue      `json:"value"`
 }
 
+func CredentialRequirement() (*document.CredentialRequirement, error) {
+	ageOver20, err := document.AgeOver(20)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create age over : %w", err)
+	}
+
+	mDLCred, err := document.NewCredential(
+		"mDL-request",
+		document.IsoMDL,
+		document.ISO1801351,
+		[]mdoc.ElementIdentifier{
+			document.IsoFamilyName,
+			document.IsoGivenName,
+			document.IsoBirthDate,
+			document.IsoIssuingCountry,
+			ageOver20,
+		},
+		document.WithLimitDisclosure("required"),
+		document.WithPurpose("For KYC"),
+		document.WithAlgorithms("ES256"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create credential : %w", err)
+	}
+
+	CredentialRequirement := document.CredentialRequirement{
+		CredentialType: document.CredentialTypeMDOC,
+		Credentials: []document.Credential{
+			*mDLCred,
+		},
+	}
+	return &CredentialRequirement, nil
+}
+
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	req := GetRequest{}
 	if err := parseJSON(r, &req); err != nil {
@@ -144,9 +145,15 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	credReq, err := CredentialRequirement()
+	if err != nil {
+		jsonErrorResponse(w, fmt.Errorf("failed to parserequest: %v", err), http.StatusBadRequest)
+		return
+	}
+
 	// create session
 	// Just use applePrivateKeyPath as reciever private key for preview as well.
-	session, err := s.sessions.NewSession(applePrivateKeyPath)
+	session, err := s.sessions.NewSession(applePrivateKeyPath, credReq)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
@@ -194,7 +201,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	// 3. verify mdoc device response;
 	var resp VerifyResponse
 
-	for _, cred := range CredentialRequirement.Credentials {
+	for _, cred := range session.CredentialRequirement.Credentials {
 		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol)
 		if err != nil {
 			fmt.Printf("failed to get doc: %s: %v", cred.DocType, err)

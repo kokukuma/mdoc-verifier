@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
@@ -27,8 +28,8 @@ func (s *Sessions) save(data *Session) (string, error) {
 	return data.ID, nil
 }
 
-func (s *Sessions) NewSession(privKeyPath string) (*Session, error) {
-	session, err := newSession(privKeyPath)
+func (s *Sessions) NewSession(privKeyPath string, credReq *document.CredentialRequirement) (*Session, error) {
+	session, err := newSession(privKeyPath, credReq)
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +76,11 @@ func NewSessions() *Sessions {
 }
 
 type Session struct {
-	ID             string
-	Nonce          Nonce
-	PrivateKey     *ecdh.PrivateKey
-	VerifyResponse *VerifyResponse
+	ID                    string
+	Nonce                 Nonce
+	PrivateKey            *ecdh.PrivateKey
+	VerifyResponse        *VerifyResponse
+	CredentialRequirement *document.CredentialRequirement
 }
 
 func (s *Session) GetNonceByte() []byte {
@@ -94,7 +96,7 @@ func (s *Session) GetPublicKeyHash() []byte {
 	return hash[:]
 }
 
-func newSession(privKeyPath string) (*Session, error) {
+func newSession(privKeyPath string, credReq *document.CredentialRequirement) (*Session, error) {
 	nonce, err := CreateNonce()
 	if err != nil {
 		return nil, err
@@ -107,8 +109,9 @@ func newSession(privKeyPath string) (*Session, error) {
 			return nil, err
 		}
 		return &Session{
-			Nonce:      nonce,
-			PrivateKey: privKey,
+			Nonce:                 nonce,
+			PrivateKey:            privKey,
+			CredentialRequirement: credReq,
 		}, nil
 	}
 
@@ -118,7 +121,8 @@ func newSession(privKeyPath string) (*Session, error) {
 		return nil, fmt.Errorf("failed to generateKey: %v", err)
 	}
 	return &Session{
-		Nonce:      nonce,
-		PrivateKey: privKey,
+		Nonce:                 nonce,
+		PrivateKey:            privKey,
+		CredentialRequirement: credReq,
 	}, nil
 }

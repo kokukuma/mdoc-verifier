@@ -23,7 +23,7 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		// MEMO: Unclear if preview will survive.
 		// Ege's blog only mentioned openid4vp, and I think it's going to disappear.
 		idReq = &IdentityRequest{
-			Selector:        CredentialRequirement.Selector()[0], // Identity Credential API only accept single selector ... ?
+			Selector:        session.CredentialRequirement.Selector()[0], // Identity Credential API only accept single selector ... ?
 			Nonce:           session.Nonce.String(),
 			ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
 		}
@@ -33,7 +33,7 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 			ClientIDScheme:         "web-origin",
 			ResponseType:           "vp_token",
 			Nonce:                  session.Nonce.String(),
-			PresentationDefinition: CredentialRequirement.PresentationDefinition(),
+			PresentationDefinition: session.CredentialRequirement.PresentationDefinition(),
 			// DCQLQuery: CredentialRequirement.DCQLQuery(),
 		}
 	case "apple":

@@ -49,7 +49,7 @@ var (
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
-	session, err := s.sessions.NewSession("")
+	session, err := s.sessions.NewSession("", &CredentialRequirementEUDIW)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
