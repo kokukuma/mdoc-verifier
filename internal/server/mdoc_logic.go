@@ -23,18 +23,18 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		// MEMO: Unclear if preview will survive.
 		// Ege's blog only mentioned openid4vp, and I think it's going to disappear.
 		idReq = &IdentityRequest{
-			Selector:        RequiredElements.Selector()[0], // Identity Credential API only accept single selector ... ?
+			Selector:        CredentialRequirement.Selector()[0], // Identity Credential API only accept single selector ... ?
 			Nonce:           session.Nonce.String(),
 			ReaderPublicKey: b64.EncodeToString(session.PrivateKey.PublicKey().Bytes()),
 		}
 	case "openid4vp":
 		idReq = &openid4vp.AuthorizationRequest{
-			ClientID:       "digital-credentials.dev",
-			ClientIDScheme: "web-origin",
-			ResponseType:   "vp_token",
-			Nonce:          session.Nonce.String(),
-			// PresentationDefinition: RequiredElements.PresentationDefinition("mDL-request-demo"),
-			DCQLQuery: RequiredElements.DCQLQuery("mDL-request-demo"),
+			ClientID:               "digital-credentials.dev",
+			ClientIDScheme:         "web-origin",
+			ResponseType:           "vp_token",
+			Nonce:                  session.Nonce.String(),
+			PresentationDefinition: CredentialRequirement.PresentationDefinition(),
+			// DCQLQuery: CredentialRequirement.DCQLQuery(),
 		}
 	case "apple":
 		// MEMO: Apple is practically only Nonce so I wouldn't say they care that much.

@@ -30,16 +30,33 @@ var (
 
 	ageOver20, _ = document.AgeOver(20)
 
-	// Which document and elements want to obtain.
-	RequiredElements = document.Elements{
-		document.IsoMDL: {
-			document.ISO1801351: {
-				document.IsoFamilyName,
-				document.IsoGivenName,
-				document.IsoBirthDate,
-				document.IsoDocumentNumber,
-				ageOver20,
+	CredentialRequirement = document.CredentialRequirement{
+		CredentialType: document.CredentialTypeMDOC,
+		Credentials: []document.Credential{
+			{
+				ID:        "mDL-request",
+				DocType:   document.IsoMDL,
+				Namespace: document.ISO1801351,
+				ElementIdentifier: []mdoc.ElementIdentifier{
+					document.IsoFamilyName,
+					document.IsoGivenName,
+					document.IsoBirthDate,
+					document.IsoIssuingCountry,
+					ageOver20,
+				},
+				Retention: 0,
+				Required:  false,
 			},
+			// {
+			// 	ID:        "agecheck",
+			// 	DocType:   document.IsoMDL,
+			// 	Namespace: document.ISO1801351,
+			// 	ElementIdentifier: []mdoc.ElementIdentifier{
+			// 		ageOver20,
+			// 	},
+			// 	Retention: 0,
+			// 	Required:  true,
+			// },
 		},
 	}
 )
@@ -176,27 +193,25 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	// 3. verify mdoc device response;
 	var resp VerifyResponse
 
-	for docType, namespaces := range RequiredElements {
-		doc, err := getVerifiedDoc(devResp, docType, sessTrans, req.Protocol)
+	for _, cred := range CredentialRequirement.Credentials {
+		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol)
 		if err != nil {
-			fmt.Printf("failed to get doc: %s: %v", docType, err)
+			fmt.Printf("failed to get doc: %s: %v", cred.DocType, err)
 			continue
 		}
 
-		for namespace, elemNames := range namespaces {
-			for _, elemName := range elemNames {
-				elemValue, err := doc.GetElementValue(namespace, elemName)
-				if err != nil {
-					fmt.Printf("element not found: %s", elemName)
-					continue
-				}
-				resp.Elements = append(resp.Elements, Element{
-					NameSpace:  namespace,
-					Identifier: elemName,
-					Value:      elemValue,
-				})
-				spew.Dump(elemName, elemValue)
+		for _, elemName := range cred.ElementIdentifier {
+			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
+			if err != nil {
+				fmt.Printf("element not found: %s", elemName)
+				continue
 			}
+			resp.Elements = append(resp.Elements, Element{
+				NameSpace:  cred.Namespace,
+				Identifier: elemName,
+				Value:      elemValue,
+			})
+			spew.Dump(elemName, elemValue)
 		}
 	}
 

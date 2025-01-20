@@ -17,14 +17,14 @@ type AuthorizationRequest struct {
 	ClientID               string                          `json:"client_id"`
 	ClientIDScheme         string                          `json:"client_id_scheme"`
 	ResponseType           string                          `json:"response_type"`
-	Nonce                  string                          `json:"nonce"`
+	Nonce                  string                          `json:"nonce,omitempty"`
 	PresentationDefinition document.PresentationDefinition `json:"presentation_definition,omitempty"`
 	DCQLQuery              document.DCQLQuery              `json:"dcql_query,omitempty"`
-	ResponseURI            string                          `json:"response_uri"`
-	ResponseMode           string                          `json:"response_mode"`
-	Scope                  string                          `json:"scope"`
-	State                  string                          `json:"state"`
-	ClientMetadata         ClientMetadata                  `json:"client_metadata"`
+	ResponseURI            string                          `json:"response_uri,omitempty"`
+	ResponseMode           string                          `json:"response_mode,omitempty"`
+	Scope                  string                          `json:"scope,omitempty"`
+	State                  string                          `json:"state,omitempty"`
+	ClientMetadata         ClientMetadata                  `json:"client_metadata,omitempty"`
 }
 
 type ClientMetadata struct {
