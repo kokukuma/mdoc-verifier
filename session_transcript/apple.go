@@ -8,7 +8,21 @@ import (
 
 const APPLE_HANDOVER_V1 = "AppleIdentityPresentment_1.0"
 
-func AppleHandoverV1(merchantID, temaID string, nonce, requesterIdHash []byte) ([]byte, error) {
+func AppleHandoverV1(merchantID, teamID string, nonce, requesterIdHash []byte) ([]byte, error) {
+	// Input validation
+	if merchantID == "" {
+		return nil, fmt.Errorf("merchantID cannot be empty")
+	}
+	if teamID == "" {
+		return nil, fmt.Errorf("teamID cannot be empty")
+	}
+	if len(nonce) == 0 {
+		return nil, fmt.Errorf("nonce cannot be empty")
+	}
+	if len(requesterIdHash) == 0 {
+		return nil, fmt.Errorf("requesterIdHash cannot be empty")
+	}
+
 	// Create the final CBOR array
 	appleHandover := []interface{}{
 		nil, // DeviceEngagementBytes
@@ -17,14 +31,14 @@ func AppleHandoverV1(merchantID, temaID string, nonce, requesterIdHash []byte) (
 			APPLE_HANDOVER_V1,
 			nonce,
 			merchantID,
-			temaID,
+			teamID,
 			requesterIdHash,
 		},
 	}
 
 	transcript, err := cbor.Marshal(appleHandover)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding transcript: %v", err)
+		return nil, fmt.Errorf("failed to encode session transcript: %w", err)
 	}
 
 	return transcript, nil
