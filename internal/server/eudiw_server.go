@@ -17,28 +17,39 @@ import (
 )
 
 var (
-	RequiredElementsEUDIW = document.Elements{
-		document.IsoMDL: {
-			document.ISO1801351: {
-				document.IsoFamilyName,
-				document.IsoGivenName,
-				document.IsoBirthDate,
-				document.IsoIssuingCountry,
+	CredentialRequirementEUDIW = document.CredentialRequirement{
+		CredentialType: document.CredentialTypeMDOC,
+		Credentials: []document.Credential{
+			{
+				DocType:   document.IsoMDL,
+				Namespace: document.ISO1801351,
+				ElementIdentifier: []mdoc.ElementIdentifier{
+					document.IsoFamilyName,
+					document.IsoGivenName,
+					document.IsoBirthDate,
+					document.IsoIssuingCountry,
+				},
+				Retention:       90,
+				LimitDisclosure: "required",
 			},
-		},
-		document.EudiPid: {
-			document.EUDIPID1: {
-				document.EudiFamilyName,
-				document.EudiGivenName,
-				document.EudiBirthDate,
-				document.EudiIssuingCountry,
+			{
+				DocType:   document.EudiPid,
+				Namespace: document.EUDIPID1,
+				ElementIdentifier: []mdoc.ElementIdentifier{
+					document.EudiFamilyName,
+					document.EudiGivenName,
+					document.EudiBirthDate,
+					document.EudiIssuingCountry,
+				},
+				Retention:       90,
+				LimitDisclosure: "required",
 			},
 		},
 	}
 )
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
-	session, err := s.sessions.NewSession("")
+	session, err := s.sessions.NewSession("", &CredentialRequirementEUDIW)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
@@ -79,7 +90,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
 		//       まぁどっちでもいい。
-		PresentationDefinition: RequiredElementsEUDIW.PresentationDefinition("mDL-request-demo"),
+		PresentationDefinition: CredentialRequirementEUDIW.PresentationDefinition(),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
 		ClientMetadata: openid4vp.CreateClientMetadata(s.serverDomain),
 	}
@@ -145,14 +156,13 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 
 	// 3. verify mdoc device response
 	var resp VerifyResponse
-	for docType, namespaces := range RequiredElementsEUDIW {
-		doc, err := devResp.GetDocument(docType)
+	for _, cred := range CredentialRequirementEUDIW.Credentials {
+		doc, err := devResp.GetDocument(cred.DocType)
 		if err != nil {
 			fmt.Printf("document not found: %s", doc.DocType)
 			continue
 		}
 
-		// date, _ := time.Parse("2006-01-02", "2024-05-02")
 		if err := mdoc.NewVerifier(
 			roots,
 			mdoc.WithSkipVerifyDeviceSigned(),
@@ -163,20 +173,18 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for namespace, elemNames := range namespaces {
-			for _, elemName := range elemNames {
-				elemValue, err := doc.GetElementValue(namespace, elemName)
-				if err != nil {
-					fmt.Printf("element not found: %s", elemName)
-					continue
-				}
-				resp.Elements = append(resp.Elements, Element{
-					NameSpace:  namespace,
-					Identifier: elemName,
-					Value:      elemValue,
-				})
-				spew.Dump(elemName, elemValue)
+		for _, elemName := range cred.ElementIdentifier {
+			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
+			if err != nil {
+				fmt.Printf("element not found: %s", elemName)
+				continue
 			}
+			resp.Elements = append(resp.Elements, Element{
+				NameSpace:  cred.Namespace,
+				Identifier: elemName,
+				Value:      elemValue,
+			})
+			spew.Dump(elemName, elemValue)
 		}
 	}
 
