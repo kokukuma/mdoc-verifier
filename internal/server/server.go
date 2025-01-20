@@ -28,6 +28,8 @@ var (
 	teamID              = "PassKit_Identity_Test_Team_ID"
 	applePrivateKeyPath = os.Getenv("APPLE_MERCHANT_ENCRYPTION_PRIVATE_KEY_PATH")
 
+	ageOver20, _ = document.AgeOver(20)
+
 	// Which document and elements want to obtain.
 	RequiredElements = document.Elements{
 		document.IsoMDL: {
@@ -36,6 +38,7 @@ var (
 				document.IsoGivenName,
 				document.IsoBirthDate,
 				document.IsoDocumentNumber,
+				ageOver20,
 			},
 		},
 	}

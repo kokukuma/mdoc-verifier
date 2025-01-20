@@ -1,6 +1,8 @@
 package document
 
 import (
+	"fmt"
+
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 )
 
@@ -77,20 +79,9 @@ var (
 	EudiIssuingJurisdiction  mdoc.ElementIdentifier = "issuing_jurisdiction"
 )
 
-//
-//
-// // only 21 works now...why..
-// func AgeOver(age int) (Element, error) {
-// 	if age < 0 && age > 99 {
-// 		return Element{}, fmt.Errorf("unsupported range of age: %v", age)
-// 	}
-// 	return Element{
-// 		Namespace: "org.iso.18013.5.1",
-// 		Name:      fmt.Sprintf("age_over_%d", age),
-// 	}, nil
-// }
-// 	// BiometricTemplate_X = Element{
-// 	// 	Namespace: "org.iso.18013.5.1",
-// 	// 	Name:      "biometric_template_x",
-// 	// }
-//
+func AgeOver(age int) (mdoc.ElementIdentifier, error) {
+	if age < 0 || age > 99 {
+		return mdoc.ElementIdentifier(""), fmt.Errorf("unsupported range of age: %v", age)
+	}
+	return mdoc.ElementIdentifier(fmt.Sprintf("age_over_%d", age)), nil
+}
