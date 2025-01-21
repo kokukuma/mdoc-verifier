@@ -34,7 +34,7 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 			ResponseType:           "vp_token",
 			Nonce:                  session.Nonce.String(),
 			PresentationDefinition: session.CredentialRequirement.PresentationDefinition(),
-			// DCQLQuery: CredentialRequirement.DCQLQuery(),
+			// DCQLQuery:              session.CredentialRequirement.DCQLQuery(),
 		}
 	case "apple":
 		// MEMO: Apple is practically only Nonce so I wouldn't say they care that much.
