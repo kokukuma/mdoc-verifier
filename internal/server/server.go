@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
@@ -196,7 +196,6 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		jsonErrorResponse(w, fmt.Errorf("failed to parse reqest: %v", err), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(devResp)
 
 	// 3. verify mdoc device response;
 	var resp VerifyResponse
@@ -211,7 +210,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 		for _, elemName := range cred.ElementIdentifier {
 			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
 			if err != nil {
-				fmt.Printf("element not found: %s", elemName)
+				log.Printf("element not found: %s: %v", elemName, err)
 				continue
 			}
 			resp.Elements = append(resp.Elements, Element{
@@ -219,7 +218,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 				Identifier: elemName,
 				Value:      elemValue,
 			})
-			spew.Dump(elemName, elemValue)
+			log.Printf("element name=%s, value=%s", elemName, elemValue)
 		}
 	}
 
@@ -241,26 +240,42 @@ func parseJSON(r *http.Request, v interface{}) error {
 	return nil
 }
 
-func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
-	dj, err := json.Marshal(d)
-	if err != nil {
-		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
-	}
-	spew.Dump(dj)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(c)
-	fmt.Fprintf(w, "%s", dj)
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
-func jsonErrorResponse(w http.ResponseWriter, e error, c int) {
-	var resp VerifyResponse
-	resp.Error = e.Error()
-	dj, err := json.Marshal(resp)
-	if err != nil {
-		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
+func jsonResponse(w http.ResponseWriter, d interface{}, statusCode int) {
+	writeJSONResponse(w, d, statusCode)
+}
+
+func jsonErrorResponse(w http.ResponseWriter, err error, statusCode int) {
+	errResp := ErrorResponse{
+		Error: err.Error(),
 	}
-	spew.Dump(dj)
+	writeJSONResponse(w, errResp, statusCode)
+}
+
+func writeJSONResponse(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(c)
-	fmt.Fprintf(w, "%s", dj)
+
+	dj, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("JSON marshaling error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		errResp := ErrorResponse{
+			Error: "Internal server error occurred",
+		}
+		if jsonErr := json.NewEncoder(w).Encode(errResp); jsonErr != nil {
+			log.Printf("Failed to write error response: %v", jsonErr)
+		}
+		return
+	}
+
+	w.WriteHeader(statusCode)
+
+	if _, err := io.WriteString(w, string(dj)); err != nil {
+		log.Printf("Failed to write response: %v", err)
+	}
+
+	log.Printf("Response [%d]: %s", statusCode, string(dj))
 }

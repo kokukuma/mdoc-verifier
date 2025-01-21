@@ -203,8 +203,8 @@ func (c CredentialRequirement) PresentationDefinition() PresentationDefinition {
 	pd := PresentationDefinition{}
 	for _, cred := range c.Credentials {
 		pd.InputDescriptors = append(pd.InputDescriptors, InputDescriptor{
-			// ID: string(cred.DocType),
-			ID: cred.ID,
+			ID: string(cred.DocType),
+			// ID: cred.ID,
 			Format: Format{
 				MsoMdoc: MsoMdoc{
 					Alg: cred.Alg,

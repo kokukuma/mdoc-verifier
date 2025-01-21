@@ -3,10 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/kokukuma/mdoc-verifier/decoder"
@@ -21,6 +21,7 @@ var (
 		CredentialType: document.CredentialTypeMDOC,
 		Credentials: []document.Credential{
 			{
+				ID:        "mdl",
 				DocType:   document.IsoMDL,
 				Namespace: document.ISO1801351,
 				ElementIdentifier: []mdoc.ElementIdentifier{
@@ -33,6 +34,7 @@ var (
 				LimitDisclosure: "required",
 			},
 			{
+				ID:        "eudi-pid",
 				DocType:   document.EudiPid,
 				Namespace: document.EUDIPID1,
 				ElementIdentifier: []mdoc.ElementIdentifier{
@@ -130,7 +132,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(ar)
+	log.Printf("authorize request = %s", ar)
 
 	session, err := s.sessions.GetSession(ar.State)
 	if err != nil {
@@ -144,7 +146,6 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		jsonErrorResponse(w, fmt.Errorf("failed to get sessTrans: %v", err), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(sessTrans)
 
 	// 2. parse mdoc device response
 	devResp, err := decoder.AuthzRespOpenID4VP(ar)
@@ -152,7 +153,6 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse device responsee: %v", err), http.StatusBadRequest)
 		return
 	}
-	spew.Dump(devResp)
 
 	// 3. verify mdoc device response
 	var resp VerifyResponse
@@ -184,7 +184,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 				Identifier: elemName,
 				Value:      elemValue,
 			})
-			spew.Dump(elemName, elemValue)
+			log.Printf("element name=%s, value=%s", elemName, elemValue)
 		}
 	}
 
@@ -215,6 +215,5 @@ func (s *Server) FinishIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spew.Dump(resp)
 	jsonResponse(w, resp, http.StatusOK)
 }
