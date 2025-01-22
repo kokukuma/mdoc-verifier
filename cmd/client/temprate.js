@@ -21,15 +21,16 @@ async function getIdentityWithOpenid4VP() {
     const signal = controller.signal;
 
     // https://wicg.github.io/digital-credentials/
-    const response = await navigator.identity.get({
-        signal: signal,
+    const response = await navigator.credentials.get({
         digital: {
-          providers: [{
-            protocol: "openid4vp",
-            request: req.data,
-          }],
-        }
-    });
+          providers: [
+            {
+              protocol: "openid4vp",
+              request: req.data,
+            }
+          ]
+        },
+    })
     console.log(response)
 
     const verifyResult = await $.post(
@@ -77,15 +78,16 @@ async function getIdentity() {
     const signal = controller.signal;
 
     // https://wicg.github.io/digital-credentials/
-    const response = await navigator.identity.get({
-        signal: signal,
+    const response = await navigator.credentials.get({
         digital: {
-          providers: [{
-            protocol: "preview",
-            request: req.data,
-          }],
-        }
-    });
+          providers: [
+            {
+              protocol: "preview",
+              request: req.data,
+            }
+          ]
+        },
+    })
     console.log(response)
 
     const verifyResult = await $.post(
