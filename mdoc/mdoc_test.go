@@ -2,13 +2,13 @@ package mdoc
 
 import (
 	"encoding/hex"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
@@ -18,7 +18,13 @@ func getPath(fileName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "testdata", fileName), nil
+	filePath := filepath.Join(dir, "testdata", fileName)
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.New("file does not exist")
+		}
+	}
+	return filePath, nil
 }
 
 func getPlaintext(fileName string) ([]byte, error) {
@@ -59,7 +65,6 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 	if err != nil {
 		log.Fatal("4", err)
 	}
-	spew.Dump(roots)
 
 	// Apple's data format
 	topics := struct {
@@ -74,6 +79,8 @@ func TestMdocVerifyIssuerAuth(t *testing.T) {
 
 	t.Run("Verify", func(t *testing.T) {
 		for _, doc := range topics.Identity.Documents {
+			// mDL_SM_IDA_01: 署名の検証
+			// mDL_SM_IDA_02: ダイジェスト値の検証
 			if err := NewVerifier(roots, WithSignCurrentTime(parsedTime), WithCertCurrentTime(parsedTime)).Verify(&doc, sessionTranscript); err != nil {
 				t.Fatalf("failed to Verify %v", err)
 			}

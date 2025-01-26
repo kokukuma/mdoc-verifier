@@ -2,6 +2,8 @@ package pki
 
 import (
 	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -66,4 +68,22 @@ func loadCertificatesFromDirectory(dirPath string) (map[string][]byte, error) {
 		}
 	}
 	return pems, nil
+}
+
+func LoadCertificate(path string) (*x509.Certificate, error) {
+	pemData, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(pemData)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return cert, nil
 }
