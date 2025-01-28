@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -83,6 +84,34 @@ type IssuerSigned struct {
 	IssuerAuth cose.UntaggedSign1Message `json:"issuerAuth"`
 }
 
+func (i *IssuerSigned) GetNameSpaces() []NameSpace {
+	nss := []NameSpace{}
+	for ns := range i.NameSpaces {
+		nss = append(nss, ns)
+	}
+	return nss
+}
+
+func (i *IssuerSigned) GetIssuerSignedItems(ns NameSpace) ([]IssuerSignedItem, error) {
+	isis := []IssuerSignedItem{}
+
+	if len(i.NameSpaces[ns]) == 0 {
+		return nil, errors.New("no such namespace")
+	}
+	for _, b := range i.NameSpaces[ns] {
+		isi, err := b.IssuerSignedItem()
+		if err != nil {
+			return nil, fmt.Errorf("failed to pares issuerSignedItem: %w", err)
+		}
+		isis = append(isis, *isi)
+	}
+	return isis, nil
+}
+
+func (i *IssuerSigned) GetIssuerAuth() cose.UntaggedSign1Message {
+	return i.IssuerAuth
+}
+
 func (i *IssuerSigned) Alg() (cose.Algorithm, error) {
 	if i.IssuerAuth.Headers.Protected == nil {
 		return 0, fmt.Errorf("protected header is nil")
@@ -91,7 +120,7 @@ func (i *IssuerSigned) Alg() (cose.Algorithm, error) {
 }
 
 func (i *IssuerSigned) DocumentSigningKey() (*ecdsa.PublicKey, error) {
-	certificate, err := i.DSCertificate()
+	certificate, err := i.DocumentSigningCertificate()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get X5CertificateChain: %w", err)
 	}
@@ -103,8 +132,8 @@ func (i *IssuerSigned) DocumentSigningKey() (*ecdsa.PublicKey, error) {
 	return documentSigningKey, nil
 }
 
-func (i *IssuerSigned) DSCertificate() (*x509.Certificate, error) {
-	certificates, err := i.DSCertificateChain()
+func (i *IssuerSigned) DocumentSigningCertificate() (*x509.Certificate, error) {
+	certificates, err := i.DocumentSigningCertificateChain()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get DSCertificateChain: %w", err)
 	}
@@ -114,7 +143,7 @@ func (i *IssuerSigned) DSCertificate() (*x509.Certificate, error) {
 	return certificates[0], nil
 }
 
-func (i *IssuerSigned) DSCertificateChain() ([]*x509.Certificate, error) {
+func (i *IssuerSigned) DocumentSigningCertificateChain() ([]*x509.Certificate, error) {
 	if i.IssuerAuth.Headers.Unprotected == nil {
 		return nil, fmt.Errorf("missing unprotected headers")
 	}
@@ -186,17 +215,26 @@ func (i IssuerSignedItemBytes) IssuerSignedItem() (*IssuerSignedItem, error) {
 	if err := cbor.Unmarshal(i, &item); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal issuer signed item: %w", err)
 	}
+	item.rawBytes = i
 	return &item, nil
 }
 
-func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
+type IssuerSignedItem struct {
+	DigestID          DigestID          `json:"digestID"`
+	Random            []byte            `json:"random"`
+	ElementIdentifier ElementIdentifier `json:"elementIdentifier"`
+	ElementValue      ElementValue      `json:"elementValue"`
+	rawBytes          IssuerSignedItemBytes
+}
+
+func (i *IssuerSignedItem) Digest(alg string) ([]byte, error) {
 	if i == nil {
 		return nil, fmt.Errorf("issuer signed item bytes is nil")
 	}
 
 	v, err := cbor.Marshal(cbor.Tag{
 		Number:  24,
-		Content: i,
+		Content: i.rawBytes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal tagged CBOR: %w", err)
@@ -220,13 +258,6 @@ func (i *IssuerSignedItemBytes) Digest(alg string) ([]byte, error) {
 	return hasher.Sum(nil), nil
 }
 
-type IssuerSignedItem struct {
-	DigestID          uint              `json:"digestID"`
-	Random            []byte            `json:"random"`
-	ElementIdentifier ElementIdentifier `json:"elementIdentifier"`
-	ElementValue      ElementValue      `json:"elementValue"`
-}
-
 type MobileSecurityObject struct {
 	Version         string        `json:"version"`
 	DigestAlgorithm string        `json:"digestAlgorithm"`
@@ -236,12 +267,43 @@ type MobileSecurityObject struct {
 	ValidityInfo    ValidityInfo  `json:"validityInfo"`
 }
 
+func (m *MobileSecurityObject) GetDocType() DocType {
+	return m.DocType
+}
+
+func (m *MobileSecurityObject) DigestAlg() string {
+	return m.DigestAlgorithm
+}
+
+func (m *MobileSecurityObject) GetValidityInfo() ValidityInfo {
+	return m.ValidityInfo
+}
+
 func (m *MobileSecurityObject) DeviceKey() (*ecdsa.PublicKey, error) {
 	if m == nil || m.DeviceKeyInfo.DeviceKey == nil {
 		return nil, fmt.Errorf("device key not available")
 	}
 	// TODO: algによって変えたほうが.
 	return parseECDSA(m.DeviceKeyInfo.DeviceKey)
+}
+
+func (m *MobileSecurityObject) GetDigest(ns NameSpace, digestID DigestID) (Digest, error) {
+	digests, ok := m.ValueDigests[ns]
+	if !ok {
+		return nil, fmt.Errorf("value digests not found: %s", ns)
+	}
+	digest, ok := digests[digestID]
+	if !ok {
+		return nil, fmt.Errorf("digest not found: %s, %d", ns, digestID)
+	}
+	return digest, nil
+}
+
+func (m *MobileSecurityObject) KeyAuthorizations() (*KeyAuthorizations, error) {
+	if m == nil || m.DeviceKeyInfo.KeyAuthorizations == nil {
+		return nil, fmt.Errorf("device key authorizations not available")
+	}
+	return m.DeviceKeyInfo.KeyAuthorizations, nil
 }
 
 type DeviceKeyInfo struct {
@@ -305,6 +367,14 @@ func (d *DeviceSigned) Alg() (cose.Algorithm, error) {
 	}
 
 	return d.DeviceAuth.DeviceSignature.Headers.Protected.Algorithm()
+}
+
+func (d *DeviceSigned) DeviceAuthMac() *UntaggedSign1Message {
+	return d.DeviceAuth.DeviceMac
+}
+
+func (d *DeviceSigned) DeviceAuthSignature() *UntaggedSign1Message {
+	return d.DeviceAuth.DeviceSignature
 }
 
 func (d *DeviceSigned) DeviceAuthenticationBytes(docType DocType, sessionTranscript []byte) ([]byte, error) {
@@ -419,6 +489,14 @@ func parseECDSA(coseKey *COSEKey) (*ecdsa.PublicKey, error) {
 // Parse失敗するので一旦無視するために別に作る...
 type UntaggedSign1Message cose.UntaggedSign1Message
 
+func (m *UntaggedSign1Message) Sign(rand io.Reader, external []byte, signer cose.Signer) error {
+	return (*cose.UntaggedSign1Message)(m).Sign(rand, external, signer)
+}
+
+func (m *UntaggedSign1Message) Verify(external []byte, verifier cose.Verifier) error {
+	return (*cose.UntaggedSign1Message)(m).Verify(external, verifier)
+}
+
 func (m *UntaggedSign1Message) MarshalCBOR() ([]byte, error) {
 	return (*cose.UntaggedSign1Message)(m).MarshalCBOR()
 }
@@ -437,12 +515,4 @@ func (m *UntaggedSign1Message) UnmarshalCBOR(data []byte) error {
 
 	*m = UntaggedSign1Message(msg)
 	return nil
-}
-
-func (m *UntaggedSign1Message) Sign(rand io.Reader, external []byte, signer cose.Signer) error {
-	return (*cose.UntaggedSign1Message)(m).Sign(rand, external, signer)
-}
-
-func (m *UntaggedSign1Message) Verify(external []byte, verifier cose.Verifier) error {
-	return (*cose.UntaggedSign1Message)(m).Verify(external, verifier)
 }
