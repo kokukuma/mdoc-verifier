@@ -22,6 +22,183 @@ function hideLoading() {
   }, 300);
 }
 
+
+// Create a table for displaying verification results with namespace, identifier, and value columns
+function createResultTable(data) {
+  console.log("Creating table from data:", data);
+  
+  // Create container div
+  var table = document.createElement('table');
+  table.className = 'table table-striped table-hover';
+  
+  // Create header
+  var thead = document.createElement('thead');
+  thead.className = 'table-light';
+  var headerRow = document.createElement('tr');
+  
+  var thNamespace = document.createElement('th');
+  thNamespace.style.width = '30%';
+  thNamespace.textContent = 'Namespace';
+  
+  var thIdentifier = document.createElement('th');
+  thIdentifier.style.width = '30%';
+  thIdentifier.textContent = 'Identifier';
+  
+  var thValue = document.createElement('th');
+  thValue.style.width = '40%';
+  thValue.textContent = 'Value';
+  
+  headerRow.appendChild(thNamespace);
+  headerRow.appendChild(thIdentifier);
+  headerRow.appendChild(thValue);
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  // Create body
+  var tbody = document.createElement('tbody');
+  
+  // Track if we've added any data
+  var rowsAdded = false;
+  
+  // Process the data in the exact format from the server
+  if (data.elements && Array.isArray(data.elements)) {
+    // Loop through each element in the array
+    data.elements.forEach(function(element) {
+      if (element.namespace && element.identifier && element.hasOwnProperty('value')) {
+        // Add row for this element with its namespace, identifier, and value
+        addRow(tbody, element.namespace, element.identifier, element.value);
+        rowsAdded = true;
+      }
+    });
+  }
+  
+  // Fallback for older data format
+  if (!rowsAdded && data.namespaces) {
+    // Check for elements in namespaces
+    if (data.namespaces.elements) {
+      try {
+        // This is a different structure, try to process it
+        var elementsData = data.namespaces.elements;
+        
+        Object.keys(elementsData).forEach(function(namespaceKey) {
+          var namespaceObj = elementsData[namespaceKey];
+          
+          Object.keys(namespaceObj).forEach(function(elementKey) {
+            var elementValue = namespaceObj[elementKey];
+            addRow(tbody, namespaceKey, elementKey, elementValue);
+            rowsAdded = true;
+          });
+        });
+      } catch (e) {
+        console.error("Error processing namespaces.elements:", e);
+      }
+    }
+    
+    // If still no data, try other namespaces
+    if (!rowsAdded) {
+      Object.keys(data.namespaces).forEach(function(namespace) {
+        // Skip general namespace
+        if (namespace === 'general') {
+          return;
+        }
+        
+        var nsData = data.namespaces[namespace];
+        
+        // Process each field in the namespace
+        Object.keys(nsData).forEach(function(identifier) {
+          var value = nsData[identifier];
+          addRow(tbody, namespace, identifier, value);
+          rowsAdded = true;
+        });
+      });
+    }
+  }
+  
+  // If we still have no rows, display a message
+  if (!rowsAdded) {
+    var row = document.createElement('tr');
+    var cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.className = 'text-center text-muted';
+    cell.textContent = 'No credential data available';
+    row.appendChild(cell);
+    tbody.appendChild(row);
+  }
+  
+  table.appendChild(tbody);
+  
+  // Add document type header if available
+  if (data.docType) {
+    var docTypeDiv = document.createElement('div');
+    docTypeDiv.className = 'alert alert-primary mb-3';
+    docTypeDiv.innerHTML = '<strong>Document Type:</strong> ' + data.docType;
+    
+    var container = document.createElement('div');
+    container.appendChild(docTypeDiv);
+    container.appendChild(table);
+    return container;
+  }
+  
+  return table;
+}
+
+// Helper function to add a row to the table
+function addRow(tbody, namespace, identifier, value) {
+  var row = document.createElement('tr');
+  
+  // Namespace cell
+  var nsCell = document.createElement('td');
+  nsCell.innerHTML = '<span class="text-primary">' + namespace + '</span>';
+  
+  // Identifier cell
+  var idCell = document.createElement('td');
+  idCell.innerHTML = '<strong>' + identifier + '</strong>';
+  
+  // Value cell
+  var valueCell = document.createElement('td');
+  
+  // Format the value based on its type
+  if (value === null || value === undefined) {
+    valueCell.innerHTML = '<em class="text-muted">null</em>';
+  } else if (typeof value === 'boolean') {
+    valueCell.innerHTML = value ? 
+      '<span class="badge bg-success">Yes</span>' : 
+      '<span class="badge bg-danger">No</span>';
+  } else if (typeof value === 'object' && !Array.isArray(value)) {
+    // For objects, create a JSON string
+    valueCell.innerHTML = '<pre class="mb-0" style="max-height: 100px; overflow-y: auto;">' + 
+                        JSON.stringify(value, null, 2) + '</pre>';
+  } else if (Array.isArray(value)) {
+    if (value.length === 0) {
+      valueCell.innerHTML = '<em class="text-muted">Empty array</em>';
+    } else {
+      // For simple arrays, display as comma-separated list
+      if (value.every(item => typeof item !== 'object' || item === null)) {
+        valueCell.textContent = value.join(', ');
+      } else {
+        // For complex arrays, create a JSON string
+        valueCell.innerHTML = '<pre class="mb-0" style="max-height: 100px; overflow-y: auto;">' + 
+                            JSON.stringify(value, null, 2) + '</pre>';
+      }
+    }
+  } else if (typeof value === 'string') {
+    // Check if it's a URL
+    if (value.match(/^https?:\/\//i)) {
+      valueCell.innerHTML = '<a href="' + value + '" target="_blank">' + value + '</a>';
+    } else {
+      valueCell.textContent = value;
+    }
+  } else {
+    // Other primitive values
+    valueCell.textContent = value;
+  }
+  
+  row.appendChild(nsCell);
+  row.appendChild(idCell);
+  row.appendChild(valueCell);
+  tbody.appendChild(row);
+}
+
 // Display verification result
 function displayResult(data, success = true) {
   const resultSection = document.getElementById('resultSection');
@@ -39,7 +216,45 @@ function displayResult(data, success = true) {
   }
   
   if (typeof data === 'object') {
-    verificationResult.textContent = JSON.stringify(data, null, 2);
+    try {
+      // Clear previous content
+      while (verificationResult.firstChild) {
+        verificationResult.removeChild(verificationResult.firstChild);
+      }
+      
+      // Add toggle button
+      var toggleButton = document.createElement('button');
+      toggleButton.className = 'btn btn-sm btn-outline-secondary mb-3';
+      toggleButton.textContent = 'Toggle JSON View';
+      toggleButton.onclick = function() {
+        document.getElementById('tableView').style.display = 
+          document.getElementById('tableView').style.display === 'none' ? 'block' : 'none';
+        document.getElementById('jsonView').style.display = 
+          document.getElementById('jsonView').style.display === 'none' ? 'block' : 'none';
+      };
+      verificationResult.appendChild(toggleButton);
+      
+      // Create table view
+      var tableView = document.createElement('div');
+      tableView.id = 'tableView';
+      tableView.appendChild(createResultTable(data));
+      verificationResult.appendChild(tableView);
+      
+      // Create JSON view (hidden by default)
+      var jsonView = document.createElement('div');
+      jsonView.id = 'jsonView';
+      jsonView.style.display = 'none';
+      
+      var pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(data, null, 2);
+      jsonView.appendChild(pre);
+      
+      verificationResult.appendChild(jsonView);
+    } catch (error) {
+      console.error('Error creating table:', error);
+      // Fallback to JSON
+      verificationResult.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+    }
   } else {
     verificationResult.textContent = data;
   }
