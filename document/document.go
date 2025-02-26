@@ -21,7 +21,7 @@ var (
 	IsoFamilyName                  mdoc.ElementIdentifier = "family_name"
 	IsoGivenName                   mdoc.ElementIdentifier = "given_name"
 	IsoBirthDate                   mdoc.ElementIdentifier = "birth_date"
-	IsoIssueDate                   mdoc.ElementIdentifier = "expiry_date"
+	IsoExpiryDate                  mdoc.ElementIdentifier = "expiry_date"
 	IsoIssuingCountry              mdoc.ElementIdentifier = "issuing_country"
 	IsoIssuingAuthority            mdoc.ElementIdentifier = "issuing_authority"
 	IsoDocumentNumber              mdoc.ElementIdentifier = "document_number"

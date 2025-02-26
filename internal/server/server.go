@@ -78,7 +78,8 @@ type Server struct {
 }
 
 type GetRequest struct {
-	Protocol string `json:"protocol"`
+	Protocol   string   `json:"protocol"`
+	Attributes []string `json:"attributes,omitempty"`
 }
 
 type GetResponse struct {
@@ -104,23 +105,48 @@ type Element struct {
 	Value      mdoc.ElementValue      `json:"value"`
 }
 
-func CredentialRequirement() (*document.CredentialRequirement, error) {
+func CredentialRequirement(attributes []string) (*document.CredentialRequirement, error) {
+	// Default attributes if none provided
+	if len(attributes) == 0 {
+		attributes = []string{"family_name", "given_name", "birth_date", "issuing_country"}
+	}
+
+	// Create the elements slice based on provided attributes
+	elements := make([]mdoc.ElementIdentifier, 0, len(attributes)+1) // +1 for ageOver if needed
+
+	// Map attribute names to the corresponding element identifiers
+	for _, attr := range attributes {
+		switch attr {
+		case "family_name":
+			elements = append(elements, document.IsoFamilyName)
+		case "given_name":
+			elements = append(elements, document.IsoGivenName)
+		case "birth_date":
+			elements = append(elements, document.IsoBirthDate)
+		case "expiry_date":
+			elements = append(elements, document.IsoExpiryDate)
+		case "issuing_country":
+			elements = append(elements, document.IsoIssuingCountry)
+		case "issuing_authority":
+			elements = append(elements, document.IsoIssuingAuthority)
+		case "document_number":
+			elements = append(elements, document.IsoDocumentNumber)
+			// Add more cases as needed
+		}
+	}
+
+	// Always include age verification
 	ageOver20, err := document.AgeOver(20)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create age over : %w", err)
 	}
+	elements = append(elements, ageOver20)
 
 	mDLCred, err := document.NewCredential(
 		"mDL-request",
 		document.IsoMDL,
 		document.ISO1801351,
-		[]mdoc.ElementIdentifier{
-			document.IsoFamilyName,
-			document.IsoGivenName,
-			document.IsoBirthDate,
-			document.IsoIssuingCountry,
-			ageOver20,
-		},
+		elements,
 		document.WithLimitDisclosure("required"),
 		document.WithPurpose("For KYC"),
 		document.WithAlgorithms("ES256"),
@@ -145,9 +171,9 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credReq, err := CredentialRequirement()
+	credReq, err := CredentialRequirement(req.Attributes)
 	if err != nil {
-		jsonErrorResponse(w, fmt.Errorf("failed to parserequest: %v", err), http.StatusBadRequest)
+		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
 	}
 
