@@ -76,7 +76,6 @@
     }
   </style>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="index.js"></script>
 </head>
 <body>
   <!-- Loading overlay -->
@@ -95,10 +94,14 @@
     <h1 class="text-center mb-4">mDoc Verifier</h1>
     <p class="text-center text-muted mb-5">Verify your mobile identity credentials securely using various protocols</p>
     
-    <div class="text-end mb-3">
-      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" 
+    <div class="d-flex justify-content-end mb-3">
+      <button class="btn btn-sm btn-outline-secondary me-2" type="button" data-bs-toggle="collapse" 
               data-bs-target="#attributeSelector" aria-expanded="false">
         <i class="fas fa-cog me-1"></i> Configure Attributes
+      </button>
+      <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+              data-bs-target="#apiRequestPreview" aria-expanded="false">
+        <i class="fas fa-code me-1"></i> Show API Request
       </button>
     </div>
     
@@ -152,6 +155,33 @@
       </div>
     </div>
     
+    <div class="collapse mb-4" id="apiRequestPreview">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h5 class="card-title mb-0"><i class="fas fa-code me-2"></i>Navigator.credentials.get API Preview</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Select a protocol below to see the API request that will be sent:</p>
+          
+          <div class="mb-3 d-flex justify-content-center gap-2">
+            <button class="btn btn-outline-primary" onclick="prepareDirect('preview')">
+              <i class="fas fa-mobile-alt me-1"></i>Preview Protocol
+            </button>
+            <button class="btn btn-outline-success" onclick="prepareDirect('openid4vp')">
+              <i class="fas fa-shield-alt me-1"></i>OpenID4VP Protocol
+            </button>
+            <button class="btn btn-outline-info" onclick="prepareDirect('eudiw')">
+              <i class="fas fa-passport me-1"></i>EUDIW Protocol
+            </button>
+          </div>
+          
+          <div class="result-container bg-light">
+            <pre id="apiRequestData" class="mb-0">Select a protocol above to see the API request</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <div class="row">
       <div class="col-md-6">
         <div class="card credential-card">
@@ -160,6 +190,7 @@
           </div>
           <div class="card-body">
             <p class="card-text">Verify identity using the Identity Credential API Preview protocol.</p>
+            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
             <button class="btn btn-primary btn-credential" onclick="getIdentity()">
               <i class="fas fa-id-card me-2"></i>Get Identity with Preview
             </button>
@@ -174,6 +205,7 @@
           </div>
           <div class="card-body">
             <p class="card-text">Verify identity using the OpenID for Verifiable Presentations protocol.</p>
+            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
             <button class="btn btn-success btn-credential" onclick="getIdentityWithOpenid4VP()">
               <i class="fas fa-shield-alt me-2"></i>Get Identity with OpenID4VP
             </button>
@@ -188,6 +220,7 @@
           </div>
           <div class="card-body">
             <p class="card-text">Verify identity using the EU Digital Identity Wallet protocol.</p>
+            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
             <button class="btn btn-info btn-credential text-white" onclick="getIdentifyFromEUDIW()">
               <i class="fas fa-globe-europe me-2"></i>Get Identity from EUDIW
             </button>
@@ -196,6 +229,8 @@
       </div>
       
     </div>
+    
+    <!-- Removed old requestSection as it's now part of the collapsible card UI -->
     
     <div class="mt-5" id="resultSection" style="display: none;">
       <h3 class="mb-3">Verification Result</h3>
@@ -210,10 +245,159 @@
 
   <!-- Bootstrap Bundle with Popper -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="temprate.js"></script>
+  <script src="index.js"></script>
   
   <script>
+    // Define getSelectedAttributes function if it doesn't exist (as a fallback)
+    if (typeof getSelectedAttributes !== 'function') {
+      function getSelectedAttributes() {
+        console.warn("Using fallback getSelectedAttributes function");
+        const selectedAttributes = [];
+        document.querySelectorAll('input[type="checkbox"][id^="attr_"]:checked').forEach(function(checkbox) {
+          selectedAttributes.push(checkbox.value);
+        });
+        return selectedAttributes;
+      }
+    }
+    
+    // Define server domain for API calls
+    const serverDomain = "{{.ServerDomain}}";
+    
+    // Define a global prepareDirect function to show credential API request
+    function prepareDirect(protocol) {
+      console.log("Preparing request for", protocol);
+      
+      // Get selected attributes
+      const selectedAttributes = [];
+      document.querySelectorAll('input[type="checkbox"][id^="attr_"]:checked').forEach(function(checkbox) {
+        selectedAttributes.push(checkbox.value);
+      });
+      
+      if (selectedAttributes.length === 0) {
+        alert("Please select at least one attribute to request.");
+        return;
+      }
+      
+      // Show loading message
+      const apiRequestData = document.getElementById('apiRequestData');
+      if (apiRequestData) {
+        apiRequestData.textContent = "Loading API request from server...";
+      }
+      
+      // Create initial payload
+      let requestPayload = { attributes: selectedAttributes };
+      if (protocol !== 'eudiw') {
+        requestPayload.protocol = protocol;
+      }
+      
+      // Make server request to get actual credential request
+      // Use different endpoint for EUDIW
+      const endpoint = protocol === 'eudiw' 
+        ? "https://" + serverDomain + "/wallet/startIdentityRequest"
+        : "https://" + serverDomain + "/getIdentityRequest";
+      
+      $.post(
+        endpoint,
+        JSON.stringify(requestPayload),
+        function (data, status) {
+          // For EUDIW, display URL; for other protocols, format the navigator.credentials.get request
+          if (protocol === 'eudiw') {
+            // Format for EUDIW (URL with query parameters)
+            if (apiRequestData) {
+              if (data.url) {
+                // Format URL nicely to show query parameters clearly
+                let formattedUrl = data.url;
+                try {
+                  // Try to make query parameters more readable
+                  if (data.url.includes('?')) {
+                    const urlParts = data.url.split('?');
+                    const baseUrl = urlParts[0];
+                    const queryString = urlParts[1];
+                    
+                    // Parse and format query params
+                    const params = new URLSearchParams(queryString);
+                    let formattedParams = '';
+                    
+                    params.forEach((value, key) => {
+                      // If value is a URL itself, try to decode it
+                      let displayValue = value;
+                      if (value.startsWith('http')) {
+                        try {
+                          displayValue = decodeURIComponent(value);
+                        } catch (e) {
+                          // Use original if decoding fails
+                        }
+                      }
+                      formattedParams += `<span class="text-primary">${key}</span>=<span class="text-success">${displayValue}</span>&<br>`;
+                    });
+                    
+                    // Remove trailing &<br>
+                    if (formattedParams.endsWith('&<br>')) {
+                      formattedParams = formattedParams.slice(0, -5);
+                    }
+                    
+                    formattedUrl = `<span class="text-muted">${baseUrl}</span>?<br>${formattedParams}`;
+                  }
+                } catch (e) {
+                  console.error("Error formatting URL:", e);
+                  // Fall back to original URL
+                  formattedUrl = data.url;
+                }
+                
+                apiRequestData.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>For EUDIW, a redirect URL is used instead of navigator.credentials.get</div>' +
+                  '<h6>Redirect URL:</h6>' +
+                  '<div class="border p-3 bg-light text-break">' + formattedUrl + '</div>' +
+                  '<h6 class="mt-3">Original URL:</h6>' +
+                  '<pre class="text-break">' + data.url + '</pre>';
+              } else {
+                apiRequestData.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>No URL returned from server for EUDIW protocol</div>';
+              }
+            }
+          } else {
+            // Format the navigator.credentials.get request for other protocols
+            const credentialRequest = {
+              digital: {
+                providers: [
+                  {
+                    protocol: protocol,
+                    request: data.data
+                  }
+                ]
+              }
+            };
+            
+            // Display only the credential request
+            if (apiRequestData) {
+              apiRequestData.innerHTML = '<pre>' + JSON.stringify(credentialRequest, null, 2) + '</pre>';
+            }
+          }
+          
+          // No need to scroll as the section is already visible in the collapsible card
+        },
+        'json'
+      ).fail(function(err) {
+        console.error(err);
+        if (apiRequestData) {
+          apiRequestData.textContent = "Error fetching request: " + JSON.stringify(err, null, 2);
+        }
+      });
+    }
+    
     window.addEventListener('load', function() {
-      onload();
+      console.log("Page loaded");
+      
+      // Assign button onclick handlers directly
+      document.querySelectorAll('.btn-secondary').forEach(function(button) {
+        button.onclick = function() {
+          const protocol = this.getAttribute('data-protocol') || 'preview';
+          prepareDirect(protocol);
+        };
+      });
+      
+      if (typeof onload === 'function') {
+        onload();
+      }
     });
   </script>
 </body>

@@ -136,11 +136,11 @@ func CredentialRequirement(attributes []string) (*document.CredentialRequirement
 	}
 
 	// Always include age verification
-	ageOver20, err := document.AgeOver(20)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create age over : %w", err)
-	}
-	elements = append(elements, ageOver20)
+	// ageOver20, err := document.AgeOver(20)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create age over : %w", err)
+	// }
+	// elements = append(elements, ageOver20)
 
 	mDLCred, err := document.NewCredential(
 		"mDL-request",
