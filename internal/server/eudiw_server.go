@@ -16,42 +16,75 @@ import (
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
 
-var (
-	CredentialRequirementEUDIW = document.CredentialRequirement{
+// CreateEUDIWCredential creates a credential requirement based on selected attributes
+func CreateEUDIWCredential(attributes []string) *document.CredentialRequirement {
+	// Default attributes if none provided
+	if len(attributes) == 0 {
+		attributes = []string{"family_name", "given_name", "birth_date", "issuing_country"}
+	}
+	
+	// Create ISO mdoc elements
+	isoElements := make([]mdoc.ElementIdentifier, 0, len(attributes))
+	eudiElements := make([]mdoc.ElementIdentifier, 0, len(attributes))
+	
+	// Map attribute names to the corresponding element identifiers
+	for _, attr := range attributes {
+		switch attr {
+		case "family_name":
+			isoElements = append(isoElements, document.IsoFamilyName)
+			eudiElements = append(eudiElements, document.EudiFamilyName)
+		case "given_name":
+			isoElements = append(isoElements, document.IsoGivenName)
+			eudiElements = append(eudiElements, document.EudiGivenName)
+		case "birth_date":
+			isoElements = append(isoElements, document.IsoBirthDate)
+			eudiElements = append(eudiElements, document.EudiBirthDate)
+		case "expiry_date":
+			isoElements = append(isoElements, document.IsoExpiryDate)
+			// Add EUDI equivalent if exists
+		case "issuing_country":
+			isoElements = append(isoElements, document.IsoIssuingCountry)
+			eudiElements = append(eudiElements, document.EudiIssuingCountry)
+		case "issuing_authority":
+			isoElements = append(isoElements, document.IsoIssuingAuthority)
+			// Add EUDI equivalent if exists
+		case "document_number":
+			isoElements = append(isoElements, document.IsoDocumentNumber)
+			// Add EUDI equivalent if exists
+		}
+	}
+	
+	return &document.CredentialRequirement{
 		CredentialType: document.CredentialTypeMDOC,
 		Credentials: []document.Credential{
 			{
-				ID:        "mdl",
-				DocType:   document.IsoMDL,
-				Namespace: document.ISO1801351,
-				ElementIdentifier: []mdoc.ElementIdentifier{
-					document.IsoFamilyName,
-					document.IsoGivenName,
-					document.IsoBirthDate,
-					document.IsoIssuingCountry,
-				},
-				Retention:       90,
-				LimitDisclosure: "required",
+				ID:                "mdl",
+				DocType:           document.IsoMDL,
+				Namespace:         document.ISO1801351,
+				ElementIdentifier: isoElements,
+				Retention:         90,
+				LimitDisclosure:   "required",
 			},
 			{
-				ID:        "eudi-pid",
-				DocType:   document.EudiPid,
-				Namespace: document.EUDIPID1,
-				ElementIdentifier: []mdoc.ElementIdentifier{
-					document.EudiFamilyName,
-					document.EudiGivenName,
-					document.EudiBirthDate,
-					document.EudiIssuingCountry,
-				},
-				Retention:       90,
-				LimitDisclosure: "required",
+				ID:                "eudi-pid",
+				DocType:           document.EudiPid,
+				Namespace:         document.EUDIPID1,
+				ElementIdentifier: eudiElements,
+				Retention:         90,
+				LimitDisclosure:   "required",
 			},
 		},
 	}
-)
+}
 
 func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
-	session, err := s.sessions.NewSession("", &CredentialRequirementEUDIW)
+	req := GetRequest{}
+	if err := parseJSON(r, &req); err != nil {
+		// Continue with empty attributes which will use defaults
+	}
+	
+	credReq := CreateEUDIWCredential(req.Attributes)
+	session, err := s.sessions.NewSession("", credReq)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to SaveSession: %v", err), http.StatusBadRequest)
 		return
@@ -92,7 +125,7 @@ func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
 
 		// TODO: presentation_definition_uri, client_metadata_uri使う形も試してみるか？
 		//       まぁどっちでもいい。
-		PresentationDefinition: CredentialRequirementEUDIW.PresentationDefinition(),
+		PresentationDefinition: session.CredentialRequirement.PresentationDefinition(),
 		// TODO: JwksURIは外から渡す形にしたほうがいい
 		ClientMetadata: openid4vp.CreateClientMetadata(s.serverDomain),
 	}
@@ -156,7 +189,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 
 	// 3. verify mdoc device response
 	var resp VerifyResponse
-	for _, cred := range CredentialRequirementEUDIW.Credentials {
+	for _, cred := range session.CredentialRequirement.Credentials {
 		doc, err := devResp.GetDocument(cred.DocType)
 		if err != nil {
 			fmt.Printf("document not found: %s", doc.DocType)

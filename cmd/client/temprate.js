@@ -1,3 +1,22 @@
+// Helper function to get selected attributes
+function getSelectedAttributes() {
+  const selectedAttributes = [];
+  
+  // Get all checked checkboxes
+  document.querySelectorAll('input[type="checkbox"][id^="attr_"]:checked').forEach(function(checkbox) {
+    selectedAttributes.push(checkbox.value);
+  });
+  
+  return selectedAttributes;
+}
+
+// Function to select or deselect all attributes
+function selectAllAttributes(select) {
+  document.querySelectorAll('input[type="checkbox"][id^="attr_"]').forEach(function(checkbox) {
+    checkbox.checked = select;
+  });
+}
+
 // Show loading overlay with custom message
 function showLoading(message) {
   const overlay = document.getElementById('loadingOverlay');
@@ -288,6 +307,14 @@ function handleError(error) {
 }
 
 async function getIdentityWithOpenid4VP() {
+  // Get selected attributes
+  const selectedAttributes = getSelectedAttributes();
+  
+  if (selectedAttributes.length === 0) {
+    alert("Please select at least one attribute to request.");
+    return;
+  }
+  
   showLoading('Requesting identity via OpenID4VP protocol...');
   
   try {
@@ -295,6 +322,7 @@ async function getIdentityWithOpenid4VP() {
         "https://{{.ServerDomain}}/getIdentityRequest",
         JSON.stringify({
           protocol: "openid4vp",
+          attributes: selectedAttributes
         }),
         function (data, status) {
           return data;
@@ -356,6 +384,14 @@ async function getIdentityWithOpenid4VP() {
 }
 
 async function getIdentity() {
+  // Get selected attributes
+  const selectedAttributes = getSelectedAttributes();
+  
+  if (selectedAttributes.length === 0) {
+    alert("Please select at least one attribute to request.");
+    return;
+  }
+  
   showLoading('Requesting identity via Preview protocol...');
   
   try {
@@ -363,6 +399,7 @@ async function getIdentity() {
         "https://{{.ServerDomain}}/getIdentityRequest",
         JSON.stringify({
           protocol: "preview",
+          attributes: selectedAttributes
         }),
         function (data, status) {
           return data;
@@ -424,12 +461,22 @@ async function getIdentity() {
 }
 
 async function getIdentifyFromEUDIW() {
+  // Get selected attributes
+  const selectedAttributes = getSelectedAttributes();
+  
+  if (selectedAttributes.length === 0) {
+    alert("Please select at least one attribute to request.");
+    return;
+  }
+  
   showLoading('Connecting to EU Digital Identity Wallet...');
   
   try {
     const req = await $.post(
         "https://{{.ServerDomain}}/wallet/startIdentityRequest",
-        JSON.stringify({}),
+        JSON.stringify({
+          attributes: selectedAttributes
+        }),
         function (data, status) {
           return data;
         },

@@ -95,6 +95,63 @@
     <h1 class="text-center mb-4">mDoc Verifier</h1>
     <p class="text-center text-muted mb-5">Verify your mobile identity credentials securely using various protocols</p>
     
+    <div class="text-end mb-3">
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" 
+              data-bs-target="#attributeSelector" aria-expanded="false">
+        <i class="fas fa-cog me-1"></i> Configure Attributes
+      </button>
+    </div>
+    
+    <div class="collapse mb-4" id="attributeSelector">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h5 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Select Attributes to Request</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Select which attributes you want to request from the wallet:</p>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_family_name" value="family_name" checked>
+                <label class="form-check-label" for="attr_family_name">Family Name</label>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_given_name" value="given_name" checked>
+                <label class="form-check-label" for="attr_given_name">Given Name</label>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_birth_date" value="birth_date" checked>
+                <label class="form-check-label" for="attr_birth_date">Birth Date</label>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_expiry_date" value="expiry_date">
+                <label class="form-check-label" for="attr_expiry_date">Expiry Date</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_issuing_country" value="issuing_country">
+                <label class="form-check-label" for="attr_issuing_country">Issuing Country</label>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_issuing_authority" value="issuing_authority">
+                <label class="form-check-label" for="attr_issuing_authority">Issuing Authority</label>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="attr_document_number" value="document_number">
+                <label class="form-check-label" for="attr_document_number">Document Number</label>
+              </div>
+              <div class="form-check mb-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="selectAllAttributes(true)">Select All</button>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllAttributes(false)">Clear All</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <div class="row">
       <div class="col-md-6">
         <div class="card credential-card">
