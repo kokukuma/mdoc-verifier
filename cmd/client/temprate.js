@@ -1,6 +1,80 @@
+// Show loading overlay with custom message
+function showLoading(message) {
+  const overlay = document.getElementById('loadingOverlay');
+  const loadingMessage = document.getElementById('loadingMessage');
+  
+  if (message) {
+    loadingMessage.textContent = message;
+  } else {
+    loadingMessage.textContent = 'Processing your request...';
+  }
+  
+  overlay.style.visibility = 'visible';
+  overlay.style.opacity = '1';
+}
 
+// Hide loading overlay
+function hideLoading() {
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.style.opacity = '0';
+  setTimeout(() => {
+    overlay.style.visibility = 'hidden';
+  }, 300);
+}
+
+// Display verification result
+function displayResult(data, success = true) {
+  const resultSection = document.getElementById('resultSection');
+  const verificationStatus = document.getElementById('verificationStatus');
+  const verificationResult = document.getElementById('verificationResult');
+  
+  resultSection.style.display = 'block';
+  
+  if (success) {
+    verificationStatus.className = 'alert alert-success mb-3';
+    verificationStatus.innerHTML = '<i class="fas fa-check-circle me-2"></i>Verification successful';
+  } else {
+    verificationStatus.className = 'alert alert-danger mb-3';
+    verificationStatus.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Verification failed';
+  }
+  
+  if (typeof data === 'object') {
+    verificationResult.textContent = JSON.stringify(data, null, 2);
+  } else {
+    verificationResult.textContent = data;
+  }
+  
+  // Scroll to result section
+  resultSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Handle errors
+function handleError(error) {
+  console.error(error);
+  let errorMessage = '';
+  
+  if (error.responseJSON && error.responseJSON.Error) {
+    errorMessage = error.responseJSON.Error;
+  } else if (error.responseText) {
+    try {
+      const errorObj = JSON.parse(error.responseText);
+      errorMessage = errorObj.Error || error.responseText;
+    } catch {
+      errorMessage = error.responseText;
+    }
+  } else if (error.message) {
+    errorMessage = error.message;
+  } else {
+    errorMessage = JSON.stringify(error);
+  }
+  
+  hideLoading();
+  displayResult({ error: errorMessage }, false);
+}
 
 async function getIdentityWithOpenid4VP() {
+  showLoading('Requesting identity via OpenID4VP protocol...');
+  
   try {
     const req = await $.post(
         "https://{{.ServerDomain}}/getIdentityRequest",
@@ -8,15 +82,19 @@ async function getIdentityWithOpenid4VP() {
           protocol: "openid4vp",
         }),
         function (data, status) {
-          return data
+          return data;
         },
-        'json').fail(function(err) {
-            console.log(err);
-            alert("failed to get request: "+ JSON.stringify(err));
-        });
-    console.log(req)
-    console.log(req.data)
-
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleError(err);
+    });
+    
+    console.log(req);
+    console.log(req.data);
+    
+    showLoading('Waiting for credential from your wallet...');
+    
     const controller = new AbortController();
     const signal = controller.signal;
 
@@ -30,9 +108,12 @@ async function getIdentityWithOpenid4VP() {
             }
           ]
         },
-    })
-    console.log(response)
-
+    });
+    
+    console.log(response);
+    
+    showLoading('Verifying credentials...');
+    
     const verifyResult = await $.post(
         "https://{{.ServerDomain}}/verifyIdentityResponse",
         JSON.stringify({
@@ -42,22 +123,26 @@ async function getIdentityWithOpenid4VP() {
           origin: location.origin,
         }),
         function (data, status) {
-          alert(JSON.stringify(data));
+          hideLoading();
+          displayResult(data);
         },
-        'json').fail(function(err) {
-            console.log(err);
-            alert("failed to verify response: "+ JSON.stringify(err.responseJSON.Error));
-        });
-    console.log(verifyResult)
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleError(err);
+    });
+    
+    console.log(verifyResult);
 
   } catch (error) {
-    console.log(error)
-    alert(JSON.stringify(error));
+    console.error(error);
+    handleError(error);
   }
 }
 
-
 async function getIdentity() {
+  showLoading('Requesting identity via Preview protocol...');
+  
   try {
     const req = await $.post(
         "https://{{.ServerDomain}}/getIdentityRequest",
@@ -65,15 +150,19 @@ async function getIdentity() {
           protocol: "preview",
         }),
         function (data, status) {
-          return data
+          return data;
         },
-        'json').fail(function(err) {
-            console.log(err);
-            alert("failed to get request: "+ JSON.stringify(err));
-        });
-    console.log(req)
-    console.log(req.data)
-
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleError(err);
+    });
+    
+    console.log(req);
+    console.log(req.data);
+    
+    showLoading('Waiting for credential from your wallet...');
+    
     const controller = new AbortController();
     const signal = controller.signal;
 
@@ -87,9 +176,12 @@ async function getIdentity() {
             }
           ]
         },
-    })
-    console.log(response)
-
+    });
+    
+    console.log(response);
+    
+    showLoading('Verifying credentials...');
+    
     const verifyResult = await $.post(
         "https://{{.ServerDomain}}/verifyIdentityResponse",
         JSON.stringify({
@@ -99,44 +191,51 @@ async function getIdentity() {
           origin: location.origin,
         }),
         function (data, status) {
-          alert(JSON.stringify(data));
+          hideLoading();
+          displayResult(data);
         },
-        'json').fail(function(err) {
-            console.log(err);
-            alert("failed to verify response: "+ JSON.stringify(err.responseJSON.Error));
-        });
-    console.log(verifyResult)
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleError(err);
+    });
+    
+    console.log(verifyResult);
 
   } catch (error) {
-    console.log(error)
-    alert(error)
+    console.error(error);
+    handleError(error);
   }
 }
 
 async function getIdentifyFromEUDIW() {
+  showLoading('Connecting to EU Digital Identity Wallet...');
+  
   try {
     const req = await $.post(
         "https://{{.ServerDomain}}/wallet/startIdentityRequest",
         JSON.stringify({}),
         function (data, status) {
-          return data
+          return data;
         },
-        'json').fail(function(err) {
-            console.log(err);
-            alert("failed to get request: "+ JSON.stringify(err));
-        });
-    console.log(req)
-    console.log(req.data)
-
-    window.location.href = req.url
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleError(err);
+    });
+    
+    console.log(req);
+    console.log(req.data);
+    
+    // Redirect to the authentication URL
+    window.location.href = req.url;
   } catch (error) {
-    console.log(error)
-    alert(error)
+    console.error(error);
+    handleError(error);
   }
 }
 
-
-// URLからクエリパラメータを取得する関数
+// Get query parameter from URL
 function getQueryParam(param) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(param);
@@ -145,8 +244,10 @@ function getQueryParam(param) {
 function onload() {
     const sessionId = getQueryParam('session_id');
 
-    // 'execute' パラメータが存在する場合、対応するコードを実行
+    // If session_id exists in URL, process the response
     if (sessionId) {
+        showLoading('Completing verification process...');
+        
         try {
           const req = $.post(
               "https://{{.ServerDomain}}/wallet/finishIdentityRequest",
@@ -154,20 +255,26 @@ function onload() {
                 session_id: sessionId,
               }),
               function (data, status) {
-                return data
+                return data;
               },
-              'json').fail(function(err) {
-                  console.log(err);
-                  alert("failed to get request: "+ JSON.stringify(err));
-              }).then(res => {
-                alert(JSON.stringify(res));
-                console.log(res)
-              });
+              'json'
+          ).fail(function(err) {
+              console.error(err);
+              handleError(err);
+          }).then(res => {
+            hideLoading();
+            displayResult(res);
+            console.log(res);
+            
+            // Remove the session_id from the URL without reloading the page
+            const newUrl = window.location.pathname;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+          });
         } catch (error) {
-          console.log(error)
-          alert(error)
+          console.error(error);
+          handleError(error);
         }
     }
 }
 
-window.onload = onload
+window.onload = onload;
