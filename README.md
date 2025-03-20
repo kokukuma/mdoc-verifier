@@ -38,8 +38,6 @@ This project is an mdoc/mDL (mobile driving license) verification compliant with
 | Verification of device signature         | ok                                                                 | ok                                                                 | ok                                                                                         | The mock data was broken.                                                                         | ok                                                                                                           | 
 | Check digest                             | ok                                                                 | ok                                                                 | ok                                                                                         | ok                                                                                                | ok                                                                                                           | 
 
-[original sheet](https://docs.google.com/spreadsheets/d/1dV_0TyqWEhWRaFCl_R4JFSsdgu6CnJZPryuAQfr_rHI/edit?gid=0#gid=0)
-
 ## Prerequisites
 ### Identity Credentials API
 * This sample server expects an environment capable of using the [Identity Credentials API](https://wicg.github.io/digital-credentials/#protocol-registry).
