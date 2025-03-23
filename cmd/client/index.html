@@ -90,21 +90,17 @@
     <div class="logo-container">
       <img src="https://github.com/user-attachments/assets/c7a023ae-543d-402a-941f-1ece0030d7c9" alt="mDoc Logo" class="logo" style="max-width: 240px;">
     </div>
-    
+
     <h1 class="text-center mb-4">mDoc Verifier</h1>
     <p class="text-center text-muted mb-5">Verify your mobile identity credentials securely using various protocols</p>
-    
+
     <div class="d-flex justify-content-end mb-3">
-      <button class="btn btn-sm btn-outline-secondary me-2" type="button" data-bs-toggle="collapse" 
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
               data-bs-target="#attributeSelector" aria-expanded="false">
         <i class="fas fa-cog me-1"></i> Configure Attributes
       </button>
-      <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
-              data-bs-target="#apiRequestPreview" aria-expanded="false">
-        <i class="fas fa-code me-1"></i> Show API Request
-      </button>
     </div>
-    
+
     <div class="collapse mb-4" id="attributeSelector">
       <div class="card">
         <div class="card-header bg-light">
@@ -112,7 +108,7 @@
         </div>
         <div class="card-body">
           <p class="text-muted mb-3">Select which attributes you want to request from the wallet:</p>
-          
+
           <div class="row">
             <div class="col-md-6">
               <div class="form-check mb-2">
@@ -154,7 +150,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="collapse mb-4" id="apiRequestPreview">
       <div class="card">
         <div class="card-header bg-light">
@@ -162,76 +158,140 @@
         </div>
         <div class="card-body">
           <p class="text-muted mb-3">Select a protocol below to see the API request that will be sent:</p>
-          
-          <div class="mb-3 d-flex justify-content-center gap-2">
-            <button class="btn btn-outline-primary" onclick="prepareDirect('preview')">
-              <i class="fas fa-mobile-alt me-1"></i>Preview Protocol
-            </button>
-            <button class="btn btn-outline-success" onclick="prepareDirect('openid4vp')">
-              <i class="fas fa-shield-alt me-1"></i>OpenID4VP Protocol
-            </button>
-            <button class="btn btn-outline-info" onclick="prepareDirect('eudiw')">
-              <i class="fas fa-passport me-1"></i>EUDIW Protocol
-            </button>
+
+          <h5 class="mb-3 border-bottom pb-2">Protocol Selection</h5>
+
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary"><i class="fas fa-code me-2"></i>Navigator.credentials.get API</h6>
+              <div class="ms-4 mb-3">
+                <button class="btn btn-outline-primary me-2" onclick="prepareDirect('preview')">
+                  <i class="fas fa-id-card me-1"></i>Identity Credential API (Preview)
+                </button>
+                <button class="btn btn-outline-success" onclick="prepareDirect('openid4vp')">
+                  <i class="fas fa-shield-alt me-1"></i>OpenID4VP via Credentials API
+                </button>
+              </div>
+            </div>
+
+            <div class="col-12 mt-3">
+              <h6 class="text-info"><i class="fas fa-exchange-alt me-2"></i>Redirect Flow</h6>
+              <div class="ms-4">
+                <button class="btn btn-outline-info" onclick="prepareDirect('eudiw')">
+                  <i class="fas fa-passport me-1"></i>EUDIW (Redirect-based)
+                </button>
+              </div>
+            </div>
           </div>
-          
+
           <div class="result-container bg-light">
             <pre id="apiRequestData" class="mb-0">Select a protocol above to see the API request</pre>
           </div>
         </div>
       </div>
     </div>
-    
+
     <div class="row">
+      <h3 class="my-4 pt-3 border-top"><i class="fas fa-code me-2"></i>Verification via Navigator.credentials.get API</h3>
+      <p class="text-muted mb-4">These methods use the browser's Digital Credentials API to communicate directly with wallets.</p>
+
       <div class="col-md-6">
         <div class="card credential-card">
-          <div class="card-header">
-            <h5 class="card-title mb-0"><i class="fas fa-mobile-alt me-2"></i>Mobile Identity Preview</h5>
+          <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0"><i class="fas fa-id-card me-2"></i>Identity Credential API (Preview)</h5>
           </div>
           <div class="card-body">
-            <p class="card-text">Verify identity using the Identity Credential API Preview protocol.</p>
-            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
+            <p class="card-text">Retrieves Identity Credentials using the browser's Navigator.credentials.get API.<br>Uses the preview implementation of Digital Credentials standards.</p>
+            
+            <div class="mb-3">
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+                      data-bs-target="#previewApiRequest" aria-expanded="false">
+                <i class="fas fa-code me-1"></i> Show API Request
+              </button>
+              
+              <div class="collapse" id="previewApiRequest">
+                <div class="result-container bg-light mt-2">
+                  <div id="previewRequestData" class="p-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="prepareDirect('preview')">Load API Request</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <button class="btn btn-primary btn-credential" onclick="getIdentity()">
               <i class="fas fa-id-card me-2"></i>Get Identity with Preview
             </button>
           </div>
         </div>
       </div>
-      
+
       <div class="col-md-6">
         <div class="card credential-card">
-          <div class="card-header">
-            <h5 class="card-title mb-0"><i class="fas fa-key me-2"></i>OpenID4VP Protocol</h5>
+          <div class="card-header bg-success text-white">
+            <h5 class="card-title mb-0"><i class="fas fa-shield-alt me-2"></i>OpenID4VP via Credentials API</h5>
           </div>
           <div class="card-body">
-            <p class="card-text">Verify identity using the OpenID for Verifiable Presentations protocol.</p>
-            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
+            <p class="card-text">Uses the OpenID4VP protocol with the Navigator.credentials.get API.<br>Combines the security of OpenID4VP with direct browser integration.</p>
+            
+            <div class="mb-3">
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+                      data-bs-target="#openidApiRequest" aria-expanded="false">
+                <i class="fas fa-code me-1"></i> Show API Request
+              </button>
+              
+              <div class="collapse" id="openidApiRequest">
+                <div class="result-container bg-light mt-2">
+                  <div id="openidRequestData" class="p-2">
+                    <button class="btn btn-sm btn-outline-success" onclick="prepareDirect('openid4vp')">Load API Request</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <button class="btn btn-success btn-credential" onclick="getIdentityWithOpenid4VP()">
               <i class="fas fa-shield-alt me-2"></i>Get Identity with OpenID4VP
             </button>
           </div>
         </div>
       </div>
-      
+
+      <h3 class="my-4 pt-3 border-top"><i class="fas fa-exchange-alt me-2"></i>Verification via Redirect Flow</h3>
+      <p class="text-muted mb-4">This method uses a redirect-based flow to authenticate with wallets, without using the Navigator.credentials.get API.</p>
+
       <div class="col-md-6">
         <div class="card credential-card">
-          <div class="card-header">
+          <div class="card-header bg-info text-white">
             <h5 class="card-title mb-0"><i class="fas fa-passport me-2"></i>EU Digital Identity Wallet</h5>
           </div>
           <div class="card-body">
-            <p class="card-text">Verify identity using the EU Digital Identity Wallet protocol.</p>
-            <!-- Removed individual Show API Request buttons as we now have a central UI for it -->
+            <p class="card-text">Uses the EU Digital Identity Wallet protocol with redirect-based authentication.<br>European Union's standard implementation of OpenID4VP.</p>
+            
+            <div class="mb-3">
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+                      data-bs-target="#eudiwApiRequest" aria-expanded="false">
+                <i class="fas fa-code me-1"></i> Show API Request
+              </button>
+              
+              <div class="collapse" id="eudiwApiRequest">
+                <div class="result-container bg-light mt-2">
+                  <div id="eudiwRequestData" class="p-2">
+                    <button class="btn btn-sm btn-outline-info" onclick="prepareDirect('eudiw')">Load API Request</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <button class="btn btn-info btn-credential text-white" onclick="getIdentifyFromEUDIW()">
               <i class="fas fa-globe-europe me-2"></i>Get Identity from EUDIW
             </button>
           </div>
         </div>
       </div>
-      
+
     </div>
-    
+
     <!-- Removed old requestSection as it's now part of the collapsible card UI -->
-    
+
     <div class="mt-5" id="resultSection" style="display: none;">
       <h3 class="mb-3">Verification Result</h3>
       <div id="verificationStatus" class="alert alert-info mb-3">
@@ -247,7 +307,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="temprate.js"></script>
   <script src="index.js"></script>
-  
+
   <script>
     // Define getSelectedAttributes function if it doesn't exist (as a fallback)
     if (typeof getSelectedAttributes !== 'function') {
@@ -260,51 +320,79 @@
         return selectedAttributes;
       }
     }
-    
+
     // Define server domain for API calls
     const serverDomain = "{{.ServerDomain}}";
-    
+
     // Define a global prepareDirect function to show credential API request
     function prepareDirect(protocol) {
       console.log("Preparing request for", protocol);
-      
+
       // Get selected attributes
       const selectedAttributes = [];
       document.querySelectorAll('input[type="checkbox"][id^="attr_"]:checked').forEach(function(checkbox) {
         selectedAttributes.push(checkbox.value);
       });
-      
+
       if (selectedAttributes.length === 0) {
         alert("Please select at least one attribute to request.");
         return;
       }
+
+      // Get the appropriate container based on protocol
+      let requestDataElement;
+      if (protocol === 'preview') {
+        requestDataElement = document.getElementById('previewRequestData');
+      } else if (protocol === 'openid4vp') {
+        requestDataElement = document.getElementById('openidRequestData');
+      } else if (protocol === 'eudiw') {
+        requestDataElement = document.getElementById('eudiwRequestData');
+      }
       
       // Show loading message
-      const apiRequestData = document.getElementById('apiRequestData');
-      if (apiRequestData) {
-        apiRequestData.textContent = "Loading API request from server...";
+      if (requestDataElement) {
+        requestDataElement.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div> Loading API request...</div>';
       }
-      
+
       // Create initial payload
       let requestPayload = { attributes: selectedAttributes };
-      if (protocol !== 'eudiw') {
+
+      // Add type and protocol information
+      if (protocol === 'preview') {
+        requestPayload.type = "digital_credentials_api";
         requestPayload.protocol = protocol;
+      } else if (protocol === 'openid4vp') {
+        requestPayload.type = "openid4vp";
+        requestPayload.protocol = protocol;
+      } else if (protocol === 'eudiw') {
+        requestPayload.type = "openid4vp";
+        requestPayload.variant = "eudiw";
       }
-      
+
       // Make server request to get actual credential request
       // Use different endpoint for EUDIW
-      const endpoint = protocol === 'eudiw' 
+      const endpoint = protocol === 'eudiw'
         ? "https://" + serverDomain + "/wallet/startIdentityRequest"
         : "https://" + serverDomain + "/getIdentityRequest";
-      
+
       $.post(
         endpoint,
         JSON.stringify(requestPayload),
         function (data, status) {
+          // Select the appropriate container
+          let requestDataElement;
+          if (protocol === 'preview') {
+            requestDataElement = document.getElementById('previewRequestData');
+          } else if (protocol === 'openid4vp') {
+            requestDataElement = document.getElementById('openidRequestData');
+          } else if (protocol === 'eudiw') {
+            requestDataElement = document.getElementById('eudiwRequestData');
+          }
+          
           // For EUDIW, display URL; for other protocols, format the navigator.credentials.get request
           if (protocol === 'eudiw') {
             // Format for EUDIW (URL with query parameters)
-            if (apiRequestData) {
+            if (requestDataElement) {
               if (data.url) {
                 // Format URL nicely to show query parameters clearly
                 let formattedUrl = data.url;
@@ -314,11 +402,11 @@
                     const urlParts = data.url.split('?');
                     const baseUrl = urlParts[0];
                     const queryString = urlParts[1];
-                    
+
                     // Parse and format query params
                     const params = new URLSearchParams(queryString);
                     let formattedParams = '';
-                    
+
                     params.forEach((value, key) => {
                       // If value is a URL itself, try to decode it
                       let displayValue = value;
@@ -331,12 +419,12 @@
                       }
                       formattedParams += `<span class="text-primary">${key}</span>=<span class="text-success">${displayValue}</span>&<br>`;
                     });
-                    
+
                     // Remove trailing &<br>
                     if (formattedParams.endsWith('&<br>')) {
                       formattedParams = formattedParams.slice(0, -5);
                     }
-                    
+
                     formattedUrl = `<span class="text-muted">${baseUrl}</span>?<br>${formattedParams}`;
                   }
                 } catch (e) {
@@ -344,14 +432,19 @@
                   // Fall back to original URL
                   formattedUrl = data.url;
                 }
-                
-                apiRequestData.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>For EUDIW, a redirect URL is used instead of navigator.credentials.get</div>' +
+
+                requestDataElement.innerHTML =
+                  '<div class="alert alert-info">' +
+                    '<i class="fas fa-info-circle me-2"></i>' +
+                    '<strong>OpenID4VP Protocol: EUDIW Variant</strong><br>' +
+                    'EUDIW implementation uses a redirect URL instead of the Navigator.credentials.get API.' +
+                  '</div>' +
                   '<h6>Redirect URL:</h6>' +
-                  '<div class="border p-3 bg-light text-break">' + formattedUrl + '</div>' +
+                  '<div class="border p-3 bg-light text-break text-left">' + formattedUrl + '</div>' +
                   '<h6 class="mt-3">Original URL:</h6>' +
-                  '<pre class="text-break">' + data.url + '</pre>';
+                  '<pre class="text-break text-left" style="text-align: left;">' + data.url + '</pre>';
               } else {
-                apiRequestData.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>No URL returned from server for EUDIW protocol</div>';
+                requestDataElement.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>No URL returned from EUDIW protocol</div>';
               }
             }
           } else {
@@ -366,27 +459,47 @@
                 ]
               }
             };
-            
-            // Display only the credential request
-            if (apiRequestData) {
-              apiRequestData.innerHTML = '<pre>' + JSON.stringify(credentialRequest, null, 2) + '</pre>';
+
+            // Display based on protocol type
+            if (requestDataElement) {
+              if (protocol === 'openid4vp') {
+                // OpenID4VP: Standard flow
+                requestDataElement.innerHTML =
+                  '<div class="alert alert-success">' +
+                    '<i class="fas fa-shield-alt me-2"></i>' +
+                    '<strong>OpenID4VP Protocol: Standard Implementation</strong><br>' +
+                    'Uses the OpenID for Verifiable Presentations protocol. Communicates with wallets through the Navigator.credentials.get API.' +
+                  '</div>' +
+                  '<h6>Navigator.credentials.get Request:</h6>' +
+                  '<pre style="text-align: left; white-space: pre-wrap;">' + JSON.stringify(credentialRequest, null, 2) + '</pre>';
+              } else {
+                // Digital Credentials API (Preview)
+                requestDataElement.innerHTML =
+                  '<div class="alert alert-primary">' +
+                    '<i class="fas fa-mobile-alt me-2"></i>' +
+                    '<strong>Digital Credentials API: Preview Implementation</strong><br>' +
+                    'Communicates directly with wallets using the Digital Credentials API. This is a preview implementation.' +
+                  '</div>' +
+                  '<h6>Navigator.credentials.get Request:</h6>' +
+                  '<pre style="text-align: left; white-space: pre-wrap;">' + JSON.stringify(credentialRequest, null, 2) + '</pre>';
+              }
             }
           }
-          
+
           // No need to scroll as the section is already visible in the collapsible card
         },
         'json'
       ).fail(function(err) {
         console.error(err);
-        if (apiRequestData) {
-          apiRequestData.textContent = "Error fetching request: " + JSON.stringify(err, null, 2);
+        if (requestDataElement) {
+          requestDataElement.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error fetching request</div><pre class="mt-2 text-left" style="text-align: left; white-space: pre-wrap;">' + JSON.stringify(err, null, 2) + '</pre>';
         }
       });
     }
-    
+
     window.addEventListener('load', function() {
       console.log("Page loaded");
-      
+
       // Assign button onclick handlers directly
       document.querySelectorAll('.btn-secondary').forEach(function(button) {
         button.onclick = function() {
@@ -394,7 +507,7 @@
           prepareDirect(protocol);
         };
       });
-      
+
       if (typeof onload === 'function') {
         onload();
       }

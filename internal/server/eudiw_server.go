@@ -22,11 +22,11 @@ func CreateEUDIWCredential(attributes []string) *document.CredentialRequirement 
 	if len(attributes) == 0 {
 		attributes = []string{"family_name", "given_name", "birth_date", "issuing_country"}
 	}
-	
+
 	// Create ISO mdoc elements
 	isoElements := make([]mdoc.ElementIdentifier, 0, len(attributes))
 	eudiElements := make([]mdoc.ElementIdentifier, 0, len(attributes))
-	
+
 	// Map attribute names to the corresponding element identifiers
 	for _, attr := range attributes {
 		switch attr {
@@ -53,7 +53,7 @@ func CreateEUDIWCredential(attributes []string) *document.CredentialRequirement 
 			// Add EUDI equivalent if exists
 		}
 	}
-	
+
 	return &document.CredentialRequirement{
 		CredentialType: document.CredentialTypeMDOC,
 		Credentials: []document.Credential{
@@ -82,7 +82,7 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	if err := parseJSON(r, &req); err != nil {
 		// Continue with empty attributes which will use defaults
 	}
-	
+
 	credReq := CreateEUDIWCredential(req.Attributes)
 	session, err := s.sessions.NewSession("", credReq)
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	for _, cred := range session.CredentialRequirement.Credentials {
 		doc, err := devResp.GetDocument(cred.DocType)
 		if err != nil {
-			fmt.Printf("document not found: %s", doc.DocType)
+			fmt.Printf("document not found: %s: %v", cred.DocType, err)
 			continue
 		}
 
