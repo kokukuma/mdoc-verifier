@@ -11,32 +11,32 @@ import (
 const (
 	// ErrCategoryDocument represents errors related to document structure and validity
 	ErrCategoryDocument = "document"
-	
+
 	// ErrCategoryNamespace represents errors related to namespaces
 	ErrCategoryNamespace = "namespace"
-	
+
 	// ErrCategoryElement represents errors related to document elements
 	ErrCategoryElement = "element"
-	
+
 	// ErrCategoryCertificate represents errors related to certificates
 	ErrCategoryCertificate = "certificate"
-	
+
 	// ErrCategoryCOSE represents errors related to COSE structures
 	ErrCategoryCOSE = "cose"
-	
+
 	// ErrCategoryDigest represents errors related to digest operations
 	ErrCategoryDigest = "digest"
-	
+
 	// ErrCategoryVerification represents errors related to verification operations
 	ErrCategoryVerification = "verification"
-	
+
 	// ErrCategoryDevice represents errors related to device operations
 	ErrCategoryDevice = "device"
 )
 
 // formatError formats an error message with an optional category prefix.
 // It ensures consistent error message formatting across the package.
-// 
+//
 // Parameters:
 //   - category: The error category, or empty for no category
 //   - format: The format string for the error message
@@ -139,8 +139,8 @@ func IsCOSEError(err error) bool {
 	var missingProtectedHeaderErr ErrMissingProtectedHeader
 	var missingPayloadErr ErrMissingPayload
 	var invalidTaggedContentErr ErrInvalidTaggedContent
-	return errors.As(err, &missingHeadersErr) || errors.As(err, &missingProtectedHeaderErr) || 
-		   errors.As(err, &missingPayloadErr) || errors.As(err, &invalidTaggedContentErr)
+	return errors.As(err, &missingHeadersErr) || errors.As(err, &missingProtectedHeaderErr) ||
+		errors.As(err, &missingPayloadErr) || errors.As(err, &invalidTaggedContentErr)
 }
 
 // IsDigestError checks if an error is related to digest issues
@@ -158,6 +158,6 @@ func IsDeviceError(err error) bool {
 	var missingDeviceProtectedHeadersErr ErrMissingDeviceProtectedHeaders
 	var emptySessionTranscriptErr ErrEmptySessionTranscript
 	return errors.As(err, &deviceKeyNotAvailableErr) || errors.As(err, &keyAuthorizationsNotAvailableErr) ||
-		   errors.As(err, &deviceSignedNilErr) || errors.As(err, &deviceNameSpacesNilErr) ||
-		   errors.As(err, &missingDeviceProtectedHeadersErr) || errors.As(err, &emptySessionTranscriptErr)
+		errors.As(err, &deviceSignedNilErr) || errors.As(err, &deviceNameSpacesNilErr) ||
+		errors.As(err, &missingDeviceProtectedHeadersErr) || errors.As(err, &emptySessionTranscriptErr)
 }

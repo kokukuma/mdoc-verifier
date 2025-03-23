@@ -24,21 +24,29 @@ function prepareRequest(protocol) {
   // Prepare the request data based on the protocol
   let requestData;
   
+  // Determine if it's Digital Credentials API or OpenID4VP flow
+  const isDigitalCredentialsAPI = protocol === 'preview';
+  const isOpenID4VP = protocol === 'openid4vp' || protocol === 'eudiw';
+  
   switch(protocol) {
     case 'preview':
       requestData = {
+        type: "digital_credentials_api",
         protocol: "preview",
         attributes: selectedAttributes
       };
       break;
     case 'openid4vp':
       requestData = {
+        type: "openid4vp",
         protocol: "openid4vp",
         attributes: selectedAttributes
       };
       break;
     case 'eudiw':
       requestData = {
+        type: "openid4vp",
+        variant: "eudiw",
         attributes: selectedAttributes
       };
       break;
@@ -195,6 +203,7 @@ async function getIdentity() {
   
   try {
     const requestPayload = {
+      type: "digital_credentials_api",
       protocol: "preview",
       attributes: selectedAttributes
     };
@@ -285,6 +294,7 @@ async function getIdentityWithOpenid4VP() {
   
   try {
     const requestPayload = {
+      type: "openid4vp",
       protocol: "openid4vp",
       attributes: selectedAttributes
     };
@@ -375,6 +385,8 @@ async function getIdentifyFromEUDIW() {
   
   try {
     const requestPayload = {
+      type: "openid4vp",
+      variant: "eudiw",
       attributes: selectedAttributes
     };
     
