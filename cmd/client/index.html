@@ -94,7 +94,10 @@
     <h1 class="text-center mb-4">mDoc Verifier</h1>
     <p class="text-center text-muted mb-5">Verify your mobile identity credentials securely using various protocols</p>
 
-    <div class="d-flex justify-content-end mb-3">
+    <div class="d-flex justify-content-between mb-3">
+      <a href="certificates.html" class="btn btn-sm btn-outline-primary">
+        <i class="fas fa-certificate me-1"></i> Certificate Management
+      </a>
       <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
               data-bs-target="#attributeSelector" aria-expanded="false">
         <i class="fas fa-cog me-1"></i> Configure Attributes
@@ -202,13 +205,13 @@
           </div>
           <div class="card-body">
             <p class="card-text">Retrieves Identity Credentials using the browser's Navigator.credentials.get API.<br>Uses the preview implementation of Digital Credentials standards.</p>
-            
+
             <div class="mb-3">
-              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse"
                       data-bs-target="#previewApiRequest" aria-expanded="false">
                 <i class="fas fa-code me-1"></i> Show API Request
               </button>
-              
+
               <div class="collapse" id="previewApiRequest">
                 <div class="result-container bg-light mt-2">
                   <div id="previewRequestData" class="p-2">
@@ -217,7 +220,7 @@
                 </div>
               </div>
             </div>
-            
+
             <button class="btn btn-primary btn-credential" onclick="getIdentity()">
               <i class="fas fa-id-card me-2"></i>Get Identity with Preview
             </button>
@@ -232,13 +235,13 @@
           </div>
           <div class="card-body">
             <p class="card-text">Uses the OpenID4VP protocol with the Navigator.credentials.get API.<br>Combines the security of OpenID4VP with direct browser integration.</p>
-            
+
             <div class="mb-3">
-              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse"
                       data-bs-target="#openidApiRequest" aria-expanded="false">
                 <i class="fas fa-code me-1"></i> Show API Request
               </button>
-              
+
               <div class="collapse" id="openidApiRequest">
                 <div class="result-container bg-light mt-2">
                   <div id="openidRequestData" class="p-2">
@@ -247,7 +250,7 @@
                 </div>
               </div>
             </div>
-            
+
             <button class="btn btn-success btn-credential" onclick="getIdentityWithOpenid4VP()">
               <i class="fas fa-shield-alt me-2"></i>Get Identity with OpenID4VP
             </button>
@@ -265,13 +268,13 @@
           </div>
           <div class="card-body">
             <p class="card-text">Uses the EU Digital Identity Wallet protocol with redirect-based authentication.<br>European Union's standard implementation of OpenID4VP.</p>
-            
+
             <div class="mb-3">
-              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" 
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse"
                       data-bs-target="#eudiwApiRequest" aria-expanded="false">
                 <i class="fas fa-code me-1"></i> Show API Request
               </button>
-              
+
               <div class="collapse" id="eudiwApiRequest">
                 <div class="result-container bg-light mt-2">
                   <div id="eudiwRequestData" class="p-2">
@@ -280,7 +283,7 @@
                 </div>
               </div>
             </div>
-            
+
             <button class="btn btn-info btn-credential text-white" onclick="getIdentifyFromEUDIW()">
               <i class="fas fa-globe-europe me-2"></i>Get Identity from EUDIW
             </button>
@@ -348,7 +351,7 @@
       } else if (protocol === 'eudiw') {
         requestDataElement = document.getElementById('eudiwRequestData');
       }
-      
+
       // Show loading message
       if (requestDataElement) {
         requestDataElement.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div> Loading API request...</div>';
@@ -388,7 +391,7 @@
           } else if (protocol === 'eudiw') {
             requestDataElement = document.getElementById('eudiwRequestData');
           }
-          
+
           // For EUDIW, display URL; for other protocols, format the navigator.credentials.get request
           if (protocol === 'eudiw') {
             // Format for EUDIW (URL with query parameters)

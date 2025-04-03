@@ -17,7 +17,6 @@ import (
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 var (
@@ -41,12 +40,19 @@ func NewServer() *Server {
 
 	dir, err := filepath.Abs(filepath.Dir("."))
 	if err != nil {
-		panic("failed to load rootCerts: " + err.Error())
+		panic("failed to get current directory: " + err.Error())
 	}
-	roots, err = pki.GetRootCertificates(filepath.Join(dir, "internal", "server", "pems"))
+	
+	pemsDir := filepath.Join(dir, "internal", "server", "pems")
+	
+	// Initialize certificate manager
+	certManager, err := NewCertManager(pemsDir)
 	if err != nil {
-		panic("failed to load rootCerts: " + err.Error())
+		panic("failed to initialize certificate manager: " + err.Error())
 	}
+	
+	// Get root certificates from certificate manager
+	roots = certManager.GetCertPool()
 
 	sigKey, certChain, err := cryptoroot.GenECDSAKeys()
 	if err != nil {
@@ -64,6 +70,7 @@ func NewServer() *Server {
 		certChain:    certChain,
 		serverDomain: serverDomain,
 		clientDomain: clientDomain,
+		certManager:  certManager,
 	}
 }
 
@@ -75,6 +82,7 @@ type Server struct {
 	certChain    []string
 	serverDomain string
 	clientDomain string
+	certManager  *CertManager // 証明書管理機能
 }
 
 type GetRequest struct {
