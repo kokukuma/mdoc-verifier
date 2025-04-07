@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/sha256"
+	"crypto/x509"
 
 	"github.com/kokukuma/mdoc-verifier/decoder"
 	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
@@ -120,7 +121,7 @@ func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
 	return verifierOptions
 }
 
-func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType mdoc.DocType, sessTrans []byte, protocol string) (*mdoc.Document, error) {
+func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType mdoc.DocType, sessTrans []byte, protocol string, certPool *x509.CertPool) (*mdoc.Document, error) {
 	doc, err := devResp.GetDocument(docType)
 	if err != nil {
 		return nil, err
@@ -128,7 +129,7 @@ func getVerifiedDoc(devResp *mdoc.DeviceResponse, docType mdoc.DocType, sessTran
 	options := verifierOptionsForDevelopment(protocol)
 
 	// set verifier options mainly because there is no legitimate wallet for now.
-	if err := mdoc.NewVerifier(roots, options...).Verify(doc, sessTrans); err != nil {
+	if err := mdoc.NewVerifier(certPool, options...).Verify(doc, sessTrans); err != nil {
 		return nil, err
 	}
 	return doc, nil

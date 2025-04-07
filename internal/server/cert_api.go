@@ -128,8 +128,5 @@ func (s *Server) ReloadCertificatesHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Update global roots variable
-	roots = s.certManager.GetCertPool()
-
 	jsonResponse(w, map[string]string{"message": "Certificates reloaded successfully"}, http.StatusOK)
 }

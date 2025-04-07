@@ -198,7 +198,7 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := mdoc.NewVerifier(
-			roots,
+			s.certManager.GetCertPool(),
 			mdoc.WithSkipVerifyDeviceSigned(),
 			// mdoc.WithSkipSignedDateValidation(),
 			// mdoc.WithCertCurrentTime(date),

@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,8 +19,7 @@ import (
 )
 
 var (
-	roots *x509.CertPool
-	b64   = base64.URLEncoding.WithPadding(base64.StdPadding)
+	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
 
 	merchantID          = "PassKit_Identity_Test_Merchant_ID"
 	teamID              = "PassKit_Identity_Test_Team_ID"
@@ -42,17 +40,14 @@ func NewServer() *Server {
 	if err != nil {
 		panic("failed to get current directory: " + err.Error())
 	}
-	
+
 	pemsDir := filepath.Join(dir, "internal", "server", "pems")
-	
+
 	// Initialize certificate manager
 	certManager, err := NewCertManager(pemsDir)
 	if err != nil {
 		panic("failed to initialize certificate manager: " + err.Error())
 	}
-	
-	// Get root certificates from certificate manager
-	roots = certManager.GetCertPool()
 
 	sigKey, certChain, err := cryptoroot.GenECDSAKeys()
 	if err != nil {
@@ -103,9 +98,9 @@ type VerifyRequest struct {
 }
 
 type VerifyResponse struct {
-	Elements []Element            `json:"elements,omitempty"`
-	Error    string               `json:"error,omitempty"`
-	Errors   map[string][]string  `json:"errors,omitempty"`
+	Elements []Element           `json:"elements,omitempty"`
+	Error    string              `json:"error,omitempty"`
+	Errors   map[string][]string `json:"errors,omitempty"`
 }
 
 type Element struct {
@@ -236,7 +231,7 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var resp VerifyResponse
 
 	for _, cred := range session.CredentialRequirement.Credentials {
-		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol)
+		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol, s.certManager.GetCertPool())
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to get doc: %s: %v", cred.DocType, err)
 			jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
