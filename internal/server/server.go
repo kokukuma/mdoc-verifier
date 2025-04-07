@@ -81,8 +81,9 @@ type Server struct {
 }
 
 type GetRequest struct {
-	Protocol   string   `json:"protocol"`
-	Attributes []string `json:"attributes,omitempty"`
+	Protocol   string                 `json:"protocol"`
+	Attributes []string               `json:"attributes,omitempty"`
+	Parameters map[string]interface{} `json:"parameters,omitempty"` // For additional parameters like cross_device
 }
 
 type GetResponse struct {

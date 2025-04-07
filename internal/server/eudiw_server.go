@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
+	"github.com/skip2/go-qrcode"
 )
 
 // CreateEUDIWCredential creates a credential requirement based on selected attributes
@@ -92,16 +94,59 @@ func (s *Server) StartIdentityRequest(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: by valueの場合とby referenceの場合両方やってみるか？
 	jar := openid4vp.JWTSecuredAuthorizeRequest{
-		AuthorizeEndpoint: "eudi-openid4vp://verifier-backend.eudiw.dev",
+		AuthorizeEndpoint: "openid4vp://verifier-backend.eudiw.dev",
 		ClientID:          s.serverDomain,
 		RequestURI:        fmt.Sprintf("https://%s/wallet/request.jwt/%s", s.serverDomain, session.ID), // request-id ?
 	}
 
-	jsonResponse(w, struct {
-		URL string `json:"url"`
-	}{
-		URL: jar.String(),
-	}, http.StatusOK)
+	// Create the URL
+	authURL := jar.String()
+
+	// Check if QR code is requested
+	wantQRCode := false
+	if qrParam := r.URL.Query().Get("qrcode"); qrParam == "true" {
+		wantQRCode = true
+	} else if r.Method == "POST" {
+		if crossDevice, ok := req.Parameters["cross_device"]; ok {
+			if b, ok := crossDevice.(bool); ok && b {
+				wantQRCode = true
+			}
+		}
+	}
+
+	// Generate QR code if requested
+	var qrCodeBase64 string
+	if wantQRCode {
+		// Generate QR code PNG
+		var qrCode []byte
+		qrCode, err = qrcode.Encode(authURL, qrcode.Medium, 256)
+		if err != nil {
+			// If QR code generation fails, we still return the URL but with no QR code
+			log.Printf("Failed to generate QR code: %v", err)
+		} else {
+			// Convert to base64
+			qrCodeBase64 = base64.StdEncoding.EncodeToString(qrCode)
+		}
+	}
+
+	// Return response with optional QR code
+	if qrCodeBase64 != "" {
+		jsonResponse(w, struct {
+			URL       string `json:"url"`
+			QRCode    string `json:"qrcode"`
+			SessionID string `json:"sessino_id"`
+		}{
+			URL:       authURL,
+			QRCode:    qrCodeBase64,
+			SessionID: session.ID,
+		}, http.StatusOK)
+	} else {
+		jsonResponse(w, struct {
+			URL string `json:"url"`
+		}{
+			URL: authURL,
+		}, http.StatusOK)
+	}
 }
 
 func (s *Server) RequestJWT(w http.ResponseWriter, r *http.Request) {
