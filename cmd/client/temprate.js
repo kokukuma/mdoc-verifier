@@ -46,6 +46,30 @@ function hideLoading() {
 function createResultTable(data) {
   console.log("Creating table from data:", data);
   
+  // Check if there is an error to display
+  if (data.error) {
+    // Create simple error display - just show the error text without table format
+    var errorContent = data.error;
+    
+    // If there are detailed errors, add the first one from each document type
+    if (data.detailedErrors) {
+      Object.keys(data.detailedErrors).forEach(function(docType) {
+        if (docType && data.detailedErrors[docType].length > 0) {
+          errorContent += "\n\n" + docType + ": " + data.detailedErrors[docType][0];
+        }
+      });
+    }
+    
+    // Create simple pre-formatted error display
+    var errorPre = document.createElement('pre');
+    errorPre.className = 'alert alert-danger';
+    errorPre.style.whiteSpace = 'pre-wrap';
+    errorPre.style.wordBreak = 'break-word';
+    errorPre.textContent = errorContent;
+    
+    return errorPre;
+  }
+  
   // Create container div
   var table = document.createElement('table');
   table.className = 'table table-striped table-hover';

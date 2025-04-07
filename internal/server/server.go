@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -17,12 +16,10 @@ import (
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/internal/cryptoroot"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
-	"github.com/kokukuma/mdoc-verifier/pkg/pki"
 )
 
 var (
-	roots *x509.CertPool
-	b64   = base64.URLEncoding.WithPadding(base64.StdPadding)
+	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
 
 	merchantID          = "PassKit_Identity_Test_Merchant_ID"
 	teamID              = "PassKit_Identity_Test_Team_ID"
@@ -41,11 +38,15 @@ func NewServer() *Server {
 
 	dir, err := filepath.Abs(filepath.Dir("."))
 	if err != nil {
-		panic("failed to load rootCerts: " + err.Error())
+		panic("failed to get current directory: " + err.Error())
 	}
-	roots, err = pki.GetRootCertificates(filepath.Join(dir, "internal", "server", "pems"))
+
+	pemsDir := filepath.Join(dir, "internal", "server", "pems")
+
+	// Initialize certificate manager
+	certManager, err := NewCertManager(pemsDir)
 	if err != nil {
-		panic("failed to load rootCerts: " + err.Error())
+		panic("failed to initialize certificate manager: " + err.Error())
 	}
 
 	sigKey, certChain, err := cryptoroot.GenECDSAKeys()
@@ -64,6 +65,7 @@ func NewServer() *Server {
 		certChain:    certChain,
 		serverDomain: serverDomain,
 		clientDomain: clientDomain,
+		certManager:  certManager,
 	}
 }
 
@@ -75,11 +77,13 @@ type Server struct {
 	certChain    []string
 	serverDomain string
 	clientDomain string
+	certManager  *CertManager // 証明書管理機能
 }
 
 type GetRequest struct {
-	Protocol   string   `json:"protocol"`
-	Attributes []string `json:"attributes,omitempty"`
+	Protocol   string                 `json:"protocol"`
+	Attributes []string               `json:"attributes,omitempty"`
+	Parameters map[string]interface{} `json:"parameters,omitempty"` // For additional parameters like cross_device
 }
 
 type GetResponse struct {
@@ -95,8 +99,9 @@ type VerifyRequest struct {
 }
 
 type VerifyResponse struct {
-	Elements []Element `json:"elements,omitempty"`
-	Error    string    `json:"error,omitempty"`
+	Elements []Element           `json:"elements,omitempty"`
+	Error    string              `json:"error,omitempty"`
+	Errors   map[string][]string `json:"errors,omitempty"`
 }
 
 type Element struct {
@@ -227,17 +232,19 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	var resp VerifyResponse
 
 	for _, cred := range session.CredentialRequirement.Credentials {
-		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol)
+		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol, s.certManager.GetCertPool())
 		if err != nil {
-			fmt.Printf("failed to get doc: %s: %v", cred.DocType, err)
-			continue
+			errMsg := fmt.Sprintf("failed to get doc: %s: %v", cred.DocType, err)
+			jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+			return
 		}
 
 		for _, elemName := range cred.ElementIdentifier {
 			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
 			if err != nil {
-				log.Printf("element not found: %s: %v", elemName, err)
-				continue
+				errMsg := fmt.Sprintf("element not found: %s: %v", elemName, err)
+				jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+				return
 			}
 			resp.Elements = append(resp.Elements, Element{
 				NameSpace:  cred.Namespace,
