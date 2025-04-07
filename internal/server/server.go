@@ -103,8 +103,9 @@ type VerifyRequest struct {
 }
 
 type VerifyResponse struct {
-	Elements []Element `json:"elements,omitempty"`
-	Error    string    `json:"error,omitempty"`
+	Elements []Element            `json:"elements,omitempty"`
+	Error    string               `json:"error,omitempty"`
+	Errors   map[string][]string  `json:"errors,omitempty"`
 }
 
 type Element struct {
@@ -237,15 +238,17 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	for _, cred := range session.CredentialRequirement.Credentials {
 		doc, err := getVerifiedDoc(devResp, cred.DocType, sessTrans, req.Protocol)
 		if err != nil {
-			fmt.Printf("failed to get doc: %s: %v", cred.DocType, err)
-			continue
+			errMsg := fmt.Sprintf("failed to get doc: %s: %v", cred.DocType, err)
+			jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+			return
 		}
 
 		for _, elemName := range cred.ElementIdentifier {
 			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
 			if err != nil {
-				log.Printf("element not found: %s: %v", elemName, err)
-				continue
+				errMsg := fmt.Sprintf("element not found: %s: %v", elemName, err)
+				jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+				return
 			}
 			resp.Elements = append(resp.Elements, Element{
 				NameSpace:  cred.Namespace,

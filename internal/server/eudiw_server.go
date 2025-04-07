@@ -192,8 +192,9 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 	for _, cred := range session.CredentialRequirement.Credentials {
 		doc, err := devResp.GetDocument(cred.DocType)
 		if err != nil {
-			fmt.Printf("document not found: %s: %v", cred.DocType, err)
-			continue
+			errMsg := fmt.Sprintf("document not found: %s: %v", cred.DocType, err)
+			jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+			return
 		}
 
 		if err := mdoc.NewVerifier(
@@ -209,8 +210,9 @@ func (s *Server) DirectPost(w http.ResponseWriter, r *http.Request) {
 		for _, elemName := range cred.ElementIdentifier {
 			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
 			if err != nil {
-				fmt.Printf("element not found: %s", elemName)
-				continue
+				errMsg := fmt.Sprintf("element not found: %s: %v", elemName, err)
+				jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
+				return
 			}
 			resp.Elements = append(resp.Elements, Element{
 				NameSpace:  cred.Namespace,
