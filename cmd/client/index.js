@@ -170,13 +170,34 @@ function showFullResult(data, success = true) {
 function handleApiError(error) {
   console.error(error);
   let errorMessage = '';
+  let detailedErrors = null;
   
-  if (error.responseJSON && error.responseJSON.Error) {
-    errorMessage = error.responseJSON.Error;
+  if (error.responseJSON) {
+    if (error.responseJSON.error) {
+      errorMessage = error.responseJSON.error;
+    } else if (error.responseJSON.Error) {
+      errorMessage = error.responseJSON.Error;
+    }
+    
+    // Check for detailed errors
+    if (error.responseJSON.errors) {
+      detailedErrors = error.responseJSON.errors;
+    }
   } else if (error.responseText) {
     try {
       const errorObj = JSON.parse(error.responseText);
-      errorMessage = errorObj.Error || error.responseText;
+      if (errorObj.error) {
+        errorMessage = errorObj.error;
+      } else if (errorObj.Error) {
+        errorMessage = errorObj.Error;
+      } else {
+        errorMessage = error.responseText;
+      }
+      
+      // Check for detailed errors
+      if (errorObj.errors) {
+        detailedErrors = errorObj.errors;
+      }
     } catch {
       errorMessage = error.responseText;
     }
@@ -187,7 +208,17 @@ function handleApiError(error) {
   }
   
   hideLoading();
-  showFullResult({ error: errorMessage }, false);
+  
+  // Prepare error result object with detailed errors if available
+  const errorResult = { 
+    error: errorMessage 
+  };
+  
+  if (detailedErrors) {
+    errorResult.detailedErrors = detailedErrors;
+  }
+  
+  showFullResult(errorResult, false);
 }
 
 async function getIdentity() {
