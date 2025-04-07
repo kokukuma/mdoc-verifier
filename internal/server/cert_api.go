@@ -130,3 +130,25 @@ func (s *Server) ReloadCertificatesHandler(w http.ResponseWriter, r *http.Reques
 
 	jsonResponse(w, map[string]string{"message": "Certificates reloaded successfully"}, http.StatusOK)
 }
+
+// GetClientCertChainHandler returns the client certificate chain used for JWT signing
+func (s *Server) GetClientCertChainHandler(w http.ResponseWriter, r *http.Request) {
+	if len(s.certChain) == 0 {
+		jsonErrorResponse(w, fmt.Errorf("no client certificate chain available"), http.StatusNotFound)
+		return
+	}
+
+	// Convert each certificate to proper PEM format
+	pemCerts := make([]string, 0, len(s.certChain))
+	for _, cert := range s.certChain {
+		pemCert := fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", cert)
+		pemCerts = append(pemCerts, pemCert)
+	}
+
+	// Return the certificate chain as separate PEM formatted certificates
+	jsonResponse(w, struct {
+		Certificates []string `json:"certificates"`
+	}{
+		Certificates: pemCerts,
+	}, http.StatusOK)
+}

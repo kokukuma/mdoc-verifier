@@ -6,6 +6,7 @@ const API_BASE_URL = '{{.ServerAPIURL}}'; // Value provided by server
 
 // Certificate API endpoint
 const CERT_API_URL = `${API_BASE_URL}/api/certificates`;
+const CLIENT_CERT_API_URL = `${API_BASE_URL}/api/client-cert-chain`;
 
 // Loading overlay show/hide
 function showLoading(message = 'Processing...') {
@@ -580,9 +581,61 @@ function downloadCertificate(filename, pemData) {
   showToast(`Certificate "${filename}" downloaded successfully`, 'success');
 }
 
+// Fetch client certificate chain
+async function fetchClientCertChain() {
+  try {
+    showLoading('Loading client certificate chain...');
+    const response = await fetch(CLIENT_CERT_API_URL);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching client certificate chain:', error);
+    showToast('Failed to fetch client certificate chain', 'danger');
+    return null;
+  } finally {
+    hideLoading();
+  }
+}
+
+// Update client certificate tab
+async function updateClientCertTab() {
+  const clientCertChainContainer = document.getElementById('clientCertChain');
+  const clientCertData = await fetchClientCertChain();
+  
+  if (!clientCertData || !clientCertData.certificates || clientCertData.certificates.length === 0) {
+    clientCertChainContainer.innerHTML = `
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        No client certificate chain available or could not be loaded.
+      </div>
+    `;
+    return;
+  }
+  
+  // Join all certificates for display
+  const chainContent = clientCertData.certificates.join('\n\n');
+  clientCertChainContainer.innerHTML = `<pre>${chainContent}</pre>`;
+  
+  // Setup download button
+  document.getElementById('downloadClientCertBtn').addEventListener('click', function() {
+    downloadCertificate('client_certificate_chain.pem', chainContent);
+  });
+}
+
+// Setup certificate tabs
+function setupCertTabs() {
+  // Event listener for tab change
+  document.getElementById('client-tab').addEventListener('shown.bs.tab', function(e) {
+    updateClientCertTab();
+  });
+}
+
 // Page load complete event handler
 document.addEventListener('DOMContentLoaded', function() {
   init();
   setupAddCertModal();
   setupReloadButton();
+  setupCertTabs();
 });

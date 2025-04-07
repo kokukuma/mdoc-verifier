@@ -140,39 +140,95 @@
 
     <div class="alert alert-info mb-4">
       <i class="fas fa-info-circle me-2"></i>
-      This screen allows you to manage root certificates. You can add, delete, and view certificate details.
+      This screen allows you to manage certificates. You can add, delete, and view certificate details.
+    </div>
+    
+    <div class="mb-4">
+      <ul class="nav nav-tabs" id="certTypeTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="issuer-tab" data-bs-toggle="tab" data-bs-target="#issuer-tab-pane" type="button" role="tab" aria-controls="issuer-tab-pane" aria-selected="true">
+            <i class="fas fa-stamp me-2"></i>Issuer Certificates
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="client-tab" data-bs-toggle="tab" data-bs-target="#client-tab-pane" type="button" role="tab" aria-controls="client-tab-pane" aria-selected="false">
+            <i class="fas fa-id-badge me-2"></i>Client Certificate Chain
+          </button>
+        </li>
+      </ul>
     </div>
 
-    <!-- Certificate List -->
-    <div class="row">
-      <div class="col-md-5">
-        <div class="card cert-card">
-          <div class="card-header bg-primary text-white">
-            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>Certificate List</h5>
-          </div>
-          <div class="card-body">
-            <div class="mb-3">
-              <input type="text" class="form-control" id="certSearchInput" placeholder="Search certificates...">
+    <!-- Certificate Tab Content -->
+    <div class="tab-content" id="certTabContent">
+      <!-- Issuer Certificates Tab -->
+      <div class="tab-pane fade show active" id="issuer-tab-pane" role="tabpanel" aria-labelledby="issuer-tab">
+        <div class="row">
+          <div class="col-md-5">
+            <div class="card cert-card">
+              <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>Issuer Certificate List</h5>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <input type="text" class="form-control" id="certSearchInput" placeholder="Search certificates...">
+                </div>
+                <div id="certificatesList" class="mb-3">
+                  <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3">Loading certificate list...</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div id="certificatesList" class="mb-3">
-              <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-3">Loading certificate list...</p>
+          </div>
+          
+          <div class="col-md-7">
+            <div class="card cert-card">
+              <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Certificate Details</h5>
+              </div>
+              <div class="card-body" id="certDetailsContainer">
+                <div class="text-center py-5 text-muted">
+                  <i class="fas fa-certificate fa-3x mb-3"></i>
+                  <p>Select a certificate from the list to view details</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
       
-      <div class="col-md-7">
-        <div class="card cert-card">
-          <div class="card-header bg-info text-white">
-            <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Certificate Details</h5>
-          </div>
-          <div class="card-body" id="certDetailsContainer">
-            <div class="text-center py-5 text-muted">
-              <i class="fas fa-certificate fa-3x mb-3"></i>
-              <p>Select a certificate from the list to view details</p>
+      <!-- Client Certificate Chain Tab -->
+      <div class="tab-pane fade" id="client-tab-pane" role="tabpanel" aria-labelledby="client-tab">
+        <div class="row">
+          <div class="col-12">
+            <div class="card cert-card">
+              <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-id-badge me-2"></i>Client Authentication Certificate Chain</h5>
+              </div>
+              <div class="card-body">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>
+                  This certificate chain is used for signing JWT in OpenID4VP protocol (AuthorizationRequest).
+                </div>
+                
+                <div id="clientCertContainer" class="cert-details-container">
+                  <div class="row mb-4">
+                    <div class="col-md-6">
+                      <button id="downloadClientCertBtn" class="btn btn-primary">
+                        <i class="fas fa-download me-2"></i>Download Certificate Chain (PEM)
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div id="clientCertChain" class="pem-content mb-4">
+                    <div class="text-center py-4">
+                      <div class="spinner-border text-primary" role="status"></div>
+                      <p class="mt-3">Loading client certificate chain...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -38,6 +38,9 @@ func main() {
 	certRouter.HandleFunc("/json", srv.AddCertificateJSONHandler).Methods("POST", "OPTIONS")
 	certRouter.HandleFunc("/{filename}", srv.DeleteCertificateHandler).Methods("DELETE", "OPTIONS")
 	certRouter.HandleFunc("/reload", srv.ReloadCertificatesHandler).Methods("POST", "OPTIONS")
+	
+	// クライアント証明書チェーンAPI
+	r.HandleFunc("/api/client-cert-chain", srv.GetClientCertChainHandler).Methods("GET", "OPTIONS")
 
 	serverAddress := ":8080"
 	log.Println("starting fido server at", serverAddress)
