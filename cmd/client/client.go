@@ -1,25 +1,33 @@
 package main
 
 import (
+	"embed"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	texttemplate "text/template"
 
 	"github.com/gorilla/mux"
 )
 
+//go:embed *.html *.js
+var templates embed.FS
+
 func main() {
 	r := mux.NewRouter()
 
-	jsTemplate := texttemplate.Must(texttemplate.ParseFiles(filepath.Join("cmd", "client", "index.js")))
+	serverDomain := os.Getenv("SERVER_DOMAIN")
+	if serverDomain == "" {
+		serverDomain = "localhost:8080"
+	}
+
+	jsTemplate := texttemplate.Must(texttemplate.ParseFS(templates, "index.js"))
 	r.HandleFunc("/index.js", func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
 			ServerDomain string
 		}{
-			ServerDomain: os.Getenv("SERVER_DOMAIN"),
+			ServerDomain: serverDomain,
 		}
 
 		w.Header().Set("Content-Type", "application/javascript")
@@ -28,13 +36,8 @@ func main() {
 		}
 	})
 
-	certJsTemplate := texttemplate.Must(texttemplate.ParseFiles(filepath.Join("cmd", "client", "certificates.js")))
+	certJsTemplate := texttemplate.Must(texttemplate.ParseFS(templates, "certificates.js"))
 	r.HandleFunc("/certificates.js", func(w http.ResponseWriter, r *http.Request) {
-		serverDomain := os.Getenv("SERVER_DOMAIN")
-		if serverDomain == "" {
-			serverDomain = "localhost:8080"
-		}
-
 		data := struct {
 			ServerAPIURL string
 		}{
@@ -47,20 +50,26 @@ func main() {
 		}
 	})
 
-	templateJsTemplate := texttemplate.Must(texttemplate.ParseFiles(filepath.Join("cmd", "client", "temprate.js")))
-	r.HandleFunc("/temprate.js", func(w http.ResponseWriter, r *http.Request) {
+	templateJsTemplate := texttemplate.Must(texttemplate.ParseFS(templates, "template.js"))
+	r.HandleFunc("/template.js", func(w http.ResponseWriter, r *http.Request) {
+		data := struct {
+			ServerDomain string
+		}{
+			ServerDomain: serverDomain,
+		}
+
 		w.Header().Set("Content-Type", "application/javascript")
-		if err := templateJsTemplate.Execute(w, nil); err != nil {
+		if err := templateJsTemplate.Execute(w, data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
 
-	htmlTemplate := template.Must(template.ParseFiles(filepath.Join("cmd", "client", "index.html")))
+	htmlTemplate := template.Must(template.ParseFS(templates, "index.html"))
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
 			ServerDomain string
 		}{
-			ServerDomain: os.Getenv("SERVER_DOMAIN"),
+			ServerDomain: serverDomain,
 		}
 
 		w.Header().Set("Content-Type", "text/html")
@@ -69,12 +78,12 @@ func main() {
 		}
 	})
 
-	certHtmlTemplate := template.Must(template.ParseFiles(filepath.Join("cmd", "client", "certificates.html")))
+	certHtmlTemplate := template.Must(template.ParseFS(templates, "certificates.html"))
 	r.HandleFunc("/certificates.html", func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
 			ServerDomain string
 		}{
-			ServerDomain: os.Getenv("SERVER_DOMAIN"),
+			ServerDomain: serverDomain,
 		}
 
 		w.Header().Set("Content-Type", "text/html")
@@ -91,7 +100,7 @@ func main() {
 		// Skip serving files that have specific template handlers
 		if r.URL.Path == "/" ||
 			r.URL.Path == "/index.js" ||
-			r.URL.Path == "/temprate.js" ||
+			r.URL.Path == "/template.js" ||
 			r.URL.Path == "/certificates.js" ||
 			r.URL.Path == "/certificates.html" {
 			return
