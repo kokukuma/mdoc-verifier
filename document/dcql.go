@@ -20,7 +20,7 @@ type MetaConstraints struct {
 	VCTValues []string `json:"vct_values,omitempty"`
 
 	// For mdoc
-	DocType string `json:"doctype,omitempty"`
+	DocType string `json:"doctype_value,omitempty"`
 
 	Additional map[string]interface{} `json:"additional,omitempty"`
 }

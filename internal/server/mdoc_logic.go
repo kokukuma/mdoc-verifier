@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/sha256"
 	"crypto/x509"
+	"fmt"
 
 	"github.com/kokukuma/mdoc-verifier/decoder"
 	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
@@ -10,6 +11,8 @@ import (
 	"github.com/kokukuma/mdoc-verifier/mdoc"
 	"github.com/kokukuma/mdoc-verifier/session_transcript"
 )
+
+const clientID = "digital-credentials.dev"
 
 type IdentityRequest struct {
 	Selector        document.Selector `json:"selector"`
@@ -30,12 +33,13 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		}
 	case "openid4vp":
 		idReq = &openid4vp.AuthorizationRequest{
-			ClientID:               "digital-credentials.dev",
+			ClientID:               clientID,
 			ClientIDScheme:         "web-origin",
 			ResponseType:           "vp_token",
+			ResponseMode:           "dc_api",
 			Nonce:                  session.Nonce.String(),
 			PresentationDefinition: session.CredentialRequirement.PresentationDefinition(),
-			// DCQLQuery:              session.CredentialRequirement.DCQLQuery(),
+			DCQLQuery:              session.CredentialRequirement.DCQLQuery(),
 		}
 	case "apple":
 		// MEMO: Apple is practically only Nonce so I wouldn't say they care that much.
@@ -52,7 +56,7 @@ func getSessionTranscript(req VerifyRequest, session *Session) ([]byte, error) {
 
 	switch req.Protocol {
 	case "openid4vp":
-		hash := sha256.Sum256([]byte("digital-credentials.dev"))
+		hash := sha256.Sum256([]byte(clientID))
 
 		// The request came from native app.
 		sessTrans, err = session_transcript.AndroidHandoverV1(session.GetNonceByte(), "com.android.mdl.appreader", hash[:])
@@ -85,12 +89,51 @@ func parseDeviceResponse(req VerifyRequest, session *Session, sessTrans []byte) 
 
 	switch req.Protocol {
 	case "openid4vp":
-		devResp, err = decoder.OpenID4VP(req.Data)
+		// draft-29 format
+		responseData, ok := req.Data.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid format for openid4vp: %w", err)
+		}
+		vpTObj, ok := responseData["vp_token"]
+		if !ok {
+			return nil, fmt.Errorf("vp_token not found for openid4vp")
+		}
+		vpTMap, ok := vpTObj.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("vp_token is not a map for openid4vp")
+		}
+
+		d := openid4vp.AuthorizationResponse{}
+		for _, cred := range session.CredentialRequirement.Credentials {
+			vpTStr, ok := vpTMap[cred.ID]
+			if !ok {
+				continue
+			}
+			d.VPToken, ok = vpTStr.(string)
+			if !ok {
+				continue
+			}
+			break
+		}
+		if d.VPToken == "" {
+			return nil, fmt.Errorf("vp_token not found for openid4vp")
+		}
+
+		devResp, err = decoder.AuthzRespOpenID4VP(&d)
 	case "preview":
-		devResp, err = decoder.AndroidHPKE(req.Data, session.GetPrivateKey(), sessTrans)
+		data, ok := req.Data.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid format for preview: %w", err)
+		}
+		devResp, err = decoder.AndroidHPKE(data, session.GetPrivateKey(), sessTrans)
 	case "apple":
+		data, ok := req.Data.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid format for apple: %w", err)
+		}
+
 		// This base64URL encoding is not in any spec, just depends on a client implementation.
-		decoded, err := b64.DecodeString(req.Data)
+		decoded, err := b64.DecodeString(data)
 		if err != nil {
 			return nil, err
 		}

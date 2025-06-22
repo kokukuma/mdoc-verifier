@@ -356,10 +356,10 @@ async function getIdentityWithOpenid4VP() {
     // https://wicg.github.io/digital-credentials/
     const response = await navigator.credentials.get({
         digital: {
-          providers: [
+          requests: [
             {
               protocol: "openid4vp",
-              request: req.data,
+              data: req.data,
             }
           ]
         },
