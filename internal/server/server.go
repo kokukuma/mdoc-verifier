@@ -92,10 +92,10 @@ type GetResponse struct {
 }
 
 type VerifyRequest struct {
-	SessionID string `json:"session_id"`
-	Protocol  string `json:"protocol"`
-	Data      string `json:"data"`
-	Origin    string `json:"origin"`
+	SessionID string      `json:"session_id"`
+	Protocol  string      `json:"protocol"`
+	Data      interface{} `json:"data"`
+	Origin    string      `json:"origin"`
 }
 
 type VerifyResponse struct {
