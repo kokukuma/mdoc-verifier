@@ -77,7 +77,21 @@ func IsValidElementForNamespace(namespace mdoc.NameSpace, element mdoc.ElementId
 			EudiAdministrativeNumber: true, EudiIssuingCountry: true, EudiIssuingJurisdiction: true,
 		}
 		return validEUDIElements[element]
-		
+
+	case JPMNC1:
+		// For JP MNC namespace, use Japanese-specific element names
+		// Element names follow the pattern: xxx_unicode for text fields
+		validJPMNCElements := map[mdoc.ElementIdentifier]bool{
+			JpFullName:               true, // full_name_unicode
+			JpBirthDateUnicode:       true,
+			JpResidentAddressUnicode: true,
+			JpSexUnicode:             true,
+			JpLocalGovCode:           true,
+			JpIndividualNumber:       true,
+			JpPortrait:               true,
+		}
+		return validJPMNCElements[element]
+
 	default:
 		// For unrecognized namespaces, always return false
 		return false
@@ -89,6 +103,7 @@ func IsValidDocTypeNamespace(docType mdoc.DocType, namespace mdoc.NameSpace) boo
 	validCombinations := map[mdoc.DocType]mdoc.NameSpace{
 		IsoMDL:  ISO1801351,
 		EudiPid: EUDIPID1,
+		JpMnc:   JPMNC1,
 	}
 
 	expectedNamespace, exists := validCombinations[docType]

@@ -9,11 +9,13 @@ import (
 var (
 	IsoMDL  mdoc.DocType = "org.iso.18013.5.1.mDL"
 	EudiPid mdoc.DocType = "eu.europa.ec.eudi.pid.1"
+	JpMnc   mdoc.DocType = "org.iso.23220.1.jp.mnc"
 )
 
 var (
 	ISO1801351 mdoc.NameSpace = "org.iso.18013.5.1"
 	EUDIPID1   mdoc.NameSpace = "eu.europa.ec.eudi.pid.1"
+	JPMNC1     mdoc.NameSpace = "org.iso.23220.1.jp"
 )
 
 var (
@@ -48,6 +50,15 @@ var (
 	IsoFamilyNameNationalCharacter mdoc.ElementIdentifier = "family_name_national_character"
 	IsoGivenNameNationalCharacter  mdoc.ElementIdentifier = "given_name_national_character"
 	IsoSignatureUsualMark          mdoc.ElementIdentifier = "signature_usual_mark"
+
+	// Namespace: "org.iso.23220.1.jp" (Japan My Number Card)
+	JpFullName              mdoc.ElementIdentifier = "full_name_unicode"
+	JpBirthDateUnicode      mdoc.ElementIdentifier = "birth_date_unicode"
+	JpResidentAddressUnicode mdoc.ElementIdentifier = "resident_address_unicode"
+	JpSexUnicode            mdoc.ElementIdentifier = "sex_unicode"
+	JpLocalGovCode          mdoc.ElementIdentifier = "local_gov_code"
+	JpIndividualNumber      mdoc.ElementIdentifier = "individual_number"
+	JpPortrait              mdoc.ElementIdentifier = "Portrait"
 
 	// Namespace: "eu.europa.ec.eudi.pid.1"
 	EudiFamilyName           mdoc.ElementIdentifier = "family_name"

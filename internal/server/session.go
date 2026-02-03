@@ -81,6 +81,7 @@ type Session struct {
 	PrivateKey            *ecdh.PrivateKey
 	VerifyResponse        *VerifyResponse
 	CredentialRequirement *document.CredentialRequirement
+	EncryptionInfo        []byte // for org-iso-mdoc protocol
 }
 
 func (s *Session) GetNonceByte() []byte {
@@ -94,6 +95,10 @@ func (s *Session) GetPrivateKey() *ecdh.PrivateKey {
 func (s *Session) GetPublicKeyHash() []byte {
 	hash := sha256.Sum256(s.PrivateKey.PublicKey().Bytes())
 	return hash[:]
+}
+
+func (s *Session) GetPublicKey() *ecdh.PublicKey {
+	return s.PrivateKey.PublicKey()
 }
 
 func newSession(privKeyPath string, credReq *document.CredentialRequirement) (*Session, error) {

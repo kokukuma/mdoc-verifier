@@ -258,6 +258,53 @@
         </div>
       </div>
 
+      <div class="col-md-6">
+        <div class="card credential-card">
+          <div class="card-header bg-warning text-dark">
+            <h5 class="card-title mb-0"><i class="fas fa-file-alt me-2"></i>ISO mdoc API (18013-7)</h5>
+          </div>
+          <div class="card-body">
+            <p class="card-text">Uses the ISO/IEC 18013-7 Annex C protocol (org-iso-mdoc).<br>Direct mdoc presentation via DC API with HPKE encryption.</p>
+
+            <div class="mb-3">
+              <label for="mdoc_doctype" class="form-label">
+                <i class="fas fa-file-contract me-1"></i> Document Type
+              </label>
+              <select class="form-select" id="mdoc_doctype">
+                <option value="org.iso.18013.5.1.mDL" selected>mDL (Mobile Driving License)</option>
+                <option value="org.iso.23220.1.jp.mnc">JP MNC (My Number Card)</option>
+              </select>
+            </div>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="mdoc_sign_request" value="sign_request">
+              <label class="form-check-label" for="mdoc_sign_request">
+                <i class="fas fa-signature me-1"></i> Enable Reader Authentication (sign request)
+              </label>
+            </div>
+
+            <div class="mb-3">
+              <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#mdocApiRequest" aria-expanded="false">
+                <i class="fas fa-code me-1"></i> Show API Request
+              </button>
+
+              <div class="collapse" id="mdocApiRequest">
+                <div class="result-container bg-light mt-2">
+                  <div id="mdocRequestData" class="p-2">
+                    <button class="btn btn-sm btn-outline-warning" onclick="prepareDirect('org-iso-mdoc')">Load API Request</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-warning btn-credential" onclick="getIdentityWithMdocAPI()">
+              <i class="fas fa-file-alt me-2"></i>Get Identity with ISO mdoc
+            </button>
+          </div>
+        </div>
+      </div>
+
       <h3 class="my-4 pt-3 border-top"><i class="fas fa-exchange-alt me-2"></i>Verification via Redirect Flow</h3>
       <p class="text-muted mb-4">This method uses a redirect-based flow to authenticate with wallets, without using the Navigator.credentials.get API.</p>
 
@@ -388,6 +435,8 @@
         requestDataElement = document.getElementById('openidRequestData');
       } else if (protocol === 'eudiw') {
         requestDataElement = document.getElementById('eudiwRequestData');
+      } else if (protocol === 'org-iso-mdoc') {
+        requestDataElement = document.getElementById('mdocRequestData');
       }
 
       // Show loading message
@@ -408,6 +457,12 @@
       } else if (protocol === 'eudiw') {
         requestPayload.type = "openid4vp";
         requestPayload.variant = "eudiw";
+      } else if (protocol === 'org-iso-mdoc') {
+        requestPayload.type = "digital_credentials_api";
+        requestPayload.protocol = protocol;
+        const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+        const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
+        requestPayload.parameters = { sign_request: signRequest, doc_type: docType };
       }
 
       // Make server request to get actual credential request
@@ -428,6 +483,8 @@
             requestDataElement = document.getElementById('openidRequestData');
           } else if (protocol === 'eudiw') {
             requestDataElement = document.getElementById('eudiwRequestData');
+          } else if (protocol === 'org-iso-mdoc') {
+            requestDataElement = document.getElementById('mdocRequestData');
           }
 
           // For EUDIW, display URL; for other protocols, format the navigator.credentials.get request
@@ -510,6 +567,16 @@
                     '<i class="fas fa-shield-alt me-2"></i>' +
                     '<strong>OpenID4VP Protocol: Standard Implementation</strong><br>' +
                     'Uses the OpenID for Verifiable Presentations protocol. Communicates with wallets through the Navigator.credentials.get API.' +
+                  '</div>' +
+                  '<h6>Navigator.credentials.get Request:</h6>' +
+                  '<pre style="text-align: left; white-space: pre-wrap;">' + JSON.stringify(credentialRequest, null, 2) + '</pre>';
+              } else if (protocol === 'org-iso-mdoc') {
+                // ISO mdoc API (18013-7)
+                requestDataElement.innerHTML =
+                  '<div class="alert alert-warning">' +
+                    '<i class="fas fa-file-alt me-2"></i>' +
+                    '<strong>ISO mdoc API: ISO/IEC 18013-7 Annex C</strong><br>' +
+                    'Direct mdoc presentation via DC API with HPKE encryption. Uses the org-iso-mdoc protocol.' +
                   '</div>' +
                   '<h6>Navigator.credentials.get Request:</h6>' +
                   '<pre style="text-align: left; white-space: pre-wrap;">' + JSON.stringify(credentialRequest, null, 2) + '</pre>';

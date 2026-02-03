@@ -504,6 +504,16 @@ func (i *IssuerSigned) DocumentSigningCertificateChain() ([]*x509.Certificate, e
 		rawX5ChainBytes = v
 	case []byte:
 		rawX5ChainBytes = [][]byte{v}
+	case []interface{}:
+		// Handle CBOR unmarshaling that produces []interface{} instead of [][]byte
+		rawX5ChainBytes = make([][]byte, len(v))
+		for i, item := range v {
+			if b, ok := item.([]byte); ok {
+				rawX5ChainBytes[i] = b
+			} else {
+				return nil, &ErrX5ChainIssue{Reason: fmt.Sprintf("x5chain item %d has unexpected type: %T", i, item)}
+			}
+		}
 	default:
 		return nil, &ErrX5ChainIssue{Reason: fmt.Sprintf("unexpected x5chain type: %T", rawX5Chain)}
 	}

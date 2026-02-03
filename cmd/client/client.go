@@ -101,5 +101,17 @@ func main() {
 
 	serverAddress := ":8081"
 	log.Println("starting web client at", serverAddress)
+
+	// Check if TLS certificates exist for HTTPS
+	certFile := filepath.Join("cmd", "client", "cert.pem")
+	keyFile := filepath.Join("cmd", "client", "key.pem")
+	if _, err := os.Stat(certFile); err == nil {
+		if _, err := os.Stat(keyFile); err == nil {
+			log.Println("TLS certificates found, starting HTTPS server")
+			log.Fatal(http.ListenAndServeTLS(serverAddress, certFile, keyFile, r))
+		}
+	}
+
+	log.Println("No TLS certificates, starting HTTP server")
 	log.Fatal(http.ListenAndServe(serverAddress, r))
 }

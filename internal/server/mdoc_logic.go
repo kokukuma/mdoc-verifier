@@ -1,10 +1,13 @@
 package server
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"log"
 
 	"github.com/kokukuma/mdoc-verifier/decoder"
+	"github.com/kokukuma/mdoc-verifier/decoder/mdocapi"
 	"github.com/kokukuma/mdoc-verifier/decoder/openid4vp"
 	"github.com/kokukuma/mdoc-verifier/document"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
@@ -17,7 +20,8 @@ type IdentityRequest struct {
 	ReaderPublicKey string            `json:"readerPublicKey"`
 }
 
-func createIDReq(req GetRequest, session *Session) interface{} {
+func createIDReq(req GetRequest, session *Session, origin string, sigKey *ecdsa.PrivateKey, certChain []string) interface{} {
+	log.Printf("createIDReq: protocol=%s, origin=%s", req.Protocol, origin)
 	var idReq interface{}
 	switch req.Protocol {
 	case "preview":
@@ -42,6 +46,63 @@ func createIDReq(req GetRequest, session *Session) interface{} {
 		idReq = &IdentityRequest{
 			Nonce: session.Nonce.String(),
 		}
+	case "org-iso-mdoc":
+		// ISO/IEC 18013-7 Annex C - DC API with mdoc
+		// Check if signing is requested (default: false for now to simplify debugging)
+		signRequest := false
+		if req.Parameters != nil {
+			if val, ok := req.Parameters["sign_request"].(bool); ok {
+				signRequest = val
+			}
+		}
+
+		log.Printf("org-iso-mdoc: signRequest=%v", signRequest)
+		log.Printf("org-iso-mdoc: CredentialRequirement=%+v", session.CredentialRequirement)
+		log.Printf("org-iso-mdoc: Credentials count=%d", len(session.CredentialRequirement.Credentials))
+
+		// Convert credentials to DocRequestInput
+		docRequests := make([]mdocapi.DocRequestInput, 0, len(session.CredentialRequirement.Credentials))
+		for _, cred := range session.CredentialRequirement.Credentials {
+			log.Printf("org-iso-mdoc: Converting credential: DocType=%s, Namespace=%s, Elements=%v",
+				cred.DocType, cred.Namespace, cred.ElementIdentifier)
+			docRequests = append(docRequests, mdocapi.ConvertCredentialToDocRequest(
+				cred.DocType,
+				cred.Namespace,
+				cred.ElementIdentifier,
+				true, // intentToRetain: always true for org-iso-mdoc
+			))
+		}
+
+		// Prepare reader key for signing (nil if unsigned)
+		var readerKey *ecdsa.PrivateKey
+		var readerCertChain []string
+		if signRequest && sigKey != nil {
+			readerKey = sigKey
+			readerCertChain = certChain
+		}
+
+		// Create the full request with encryptionInfo
+		// Use 16-byte nonce for org-iso-mdoc (ISO 18013-7 requirement)
+		nonce16 := session.GetNonceByte()[:16]
+		log.Printf("org-iso-mdoc: Creating request with %d docRequests, origin=%s, signRequest=%v", len(docRequests), origin, signRequest)
+		mdocReq, encryptionInfo, err := mdocapi.CreateFullRequest(
+			nonce16,
+			session.GetPublicKey(),
+			origin,
+			docRequests,
+			readerKey,
+			readerCertChain,
+		)
+		if err != nil {
+			log.Printf("org-iso-mdoc: Failed to create request: %v", err)
+			return nil
+		}
+		log.Printf("org-iso-mdoc: Request created successfully, encryptionInfo length=%d", len(encryptionInfo))
+
+		// Store encryptionInfo in session for later use
+		session.EncryptionInfo = encryptionInfo
+
+		idReq = mdocReq
 	}
 	return idReq
 }
@@ -72,6 +133,13 @@ func getSessionTranscript(req VerifyRequest, session *Session) ([]byte, error) {
 	case "apple":
 		// The request came from iOS app.
 		sessTrans, err = session_transcript.AppleHandoverV1(merchantID, teamID, session.GetNonceByte(), session.GetPublicKeyHash())
+	case "org-iso-mdoc":
+		// ISO/IEC 18013-7 Annex C - DC API with mdoc
+		// Use the stored encryptionInfo from the session to reconstruct the session transcript
+		if len(session.EncryptionInfo) == 0 {
+			return nil, err
+		}
+		sessTrans, err = session_transcript.DcapiHandover(session.EncryptionInfo, req.Origin)
 	}
 	if err != nil {
 		return nil, err
@@ -95,6 +163,9 @@ func parseDeviceResponse(req VerifyRequest, session *Session, sessTrans []byte) 
 			return nil, err
 		}
 		devResp, err = decoder.AppleHPKE(decoded, session.GetPrivateKey(), sessTrans)
+	case "org-iso-mdoc":
+		// ISO/IEC 18013-7 Annex C - DC API with mdoc
+		devResp, err = decoder.MdocAPI(req.Data, session.GetPrivateKey(), sessTrans)
 	}
 	if err != nil {
 		return nil, err
@@ -109,6 +180,11 @@ func verifierOptionsForDevelopment(protocol string) []mdoc.VerifierOption {
 	case "openid4vp", "preview":
 		verifierOptions = []mdoc.VerifierOption{
 			// mdoc.WithSkipSignedDateValidation(),
+			// mdoc.WithSkipVerifyCertificate(),
+		}
+	case "org-iso-mdoc":
+		// Skip certificate verification for development (wallet's issuer CA not in our pool)
+		verifierOptions = []mdoc.VerifierOption{
 			// mdoc.WithSkipVerifyCertificate(),
 		}
 	case "apple":

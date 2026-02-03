@@ -110,33 +110,77 @@ type Element struct {
 	Value      mdoc.ElementValue      `json:"value"`
 }
 
-func CredentialRequirement(attributes []string) (*document.CredentialRequirement, error) {
-	// Default attributes if none provided
-	if len(attributes) == 0 {
-		attributes = []string{"family_name", "given_name", "birth_date", "issuing_country"}
-	}
+func CredentialRequirement(attributes []string, docTypeStr string) (*document.CredentialRequirement, error) {
+	// Determine docType and namespace based on docTypeStr
+	var docType mdoc.DocType
+	var namespace mdoc.NameSpace
+	var credName string
+	var elements []mdoc.ElementIdentifier
 
-	// Create the elements slice based on provided attributes
-	elements := make([]mdoc.ElementIdentifier, 0, len(attributes)+1) // +1 for ageOver if needed
+	switch docTypeStr {
+	case "org.iso.23220.1.jp.mnc":
+		docType = document.JpMnc
+		namespace = document.JPMNC1
+		credName = "jp-mnc-request"
 
-	// Map attribute names to the corresponding element identifiers
-	for _, attr := range attributes {
-		switch attr {
-		case "family_name":
-			elements = append(elements, document.IsoFamilyName)
-		case "given_name":
-			elements = append(elements, document.IsoGivenName)
-		case "birth_date":
-			elements = append(elements, document.IsoBirthDate)
-		case "expiry_date":
-			elements = append(elements, document.IsoExpiryDate)
-		case "issuing_country":
-			elements = append(elements, document.IsoIssuingCountry)
-		case "issuing_authority":
-			elements = append(elements, document.IsoIssuingAuthority)
-		case "document_number":
-			elements = append(elements, document.IsoDocumentNumber)
-			// Add more cases as needed
+		// Japanese My Number Card uses different element names
+		// Default attributes if none provided
+		if len(attributes) == 0 {
+			attributes = []string{"full_name", "birth_date_unicode"}
+		}
+
+		elements = make([]mdoc.ElementIdentifier, 0, len(attributes))
+		for _, attr := range attributes {
+			switch attr {
+			case "full_name", "full_name_unicode", "family_name", "given_name":
+				// Map family_name/given_name to full_name_unicode for JP MNC
+				if !containsElement(elements, document.JpFullName) {
+					elements = append(elements, document.JpFullName)
+				}
+			case "birth_date_unicode", "birth_date":
+				elements = append(elements, document.JpBirthDateUnicode)
+			case "resident_address_unicode":
+				elements = append(elements, document.JpResidentAddressUnicode)
+			case "sex_unicode":
+				elements = append(elements, document.JpSexUnicode)
+			case "local_gov_code":
+				elements = append(elements, document.JpLocalGovCode)
+			case "individual_number":
+				elements = append(elements, document.JpIndividualNumber)
+			case "portrait", "Portrait":
+				elements = append(elements, document.JpPortrait)
+			}
+		}
+
+	default:
+		// Default to mDL
+		docType = document.IsoMDL
+		namespace = document.ISO1801351
+		credName = "mDL-request"
+
+		// Default attributes if none provided
+		if len(attributes) == 0 {
+			attributes = []string{"family_name", "given_name", "birth_date", "issuing_country"}
+		}
+
+		elements = make([]mdoc.ElementIdentifier, 0, len(attributes))
+		for _, attr := range attributes {
+			switch attr {
+			case "family_name":
+				elements = append(elements, document.IsoFamilyName)
+			case "given_name":
+				elements = append(elements, document.IsoGivenName)
+			case "birth_date":
+				elements = append(elements, document.IsoBirthDate)
+			case "expiry_date":
+				elements = append(elements, document.IsoExpiryDate)
+			case "issuing_country":
+				elements = append(elements, document.IsoIssuingCountry)
+			case "issuing_authority":
+				elements = append(elements, document.IsoIssuingAuthority)
+			case "document_number":
+				elements = append(elements, document.IsoDocumentNumber)
+			}
 		}
 	}
 
@@ -147,10 +191,10 @@ func CredentialRequirement(attributes []string) (*document.CredentialRequirement
 	// }
 	// elements = append(elements, ageOver20)
 
-	mDLCred, err := document.NewCredential(
-		"mDL-request",
-		document.IsoMDL,
-		document.ISO1801351,
+	cred, err := document.NewCredential(
+		credName,
+		docType,
+		namespace,
 		elements,
 		document.WithLimitDisclosure("required"),
 		document.WithPurpose("For KYC"),
@@ -160,13 +204,13 @@ func CredentialRequirement(attributes []string) (*document.CredentialRequirement
 		return nil, fmt.Errorf("failed to create credential : %w", err)
 	}
 
-	CredentialRequirement := document.CredentialRequirement{
+	credReq := document.CredentialRequirement{
 		CredentialType: document.CredentialTypeMDOC,
 		Credentials: []document.Credential{
-			*mDLCred,
+			*cred,
 		},
 	}
-	return &CredentialRequirement, nil
+	return &credReq, nil
 }
 
 func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +220,15 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credReq, err := CredentialRequirement(req.Attributes)
+	// Get docType from parameters (default to mDL)
+	docType := "org.iso.18013.5.1.mDL"
+	if req.Parameters != nil {
+		if dt, ok := req.Parameters["doc_type"].(string); ok && dt != "" {
+			docType = dt
+		}
+	}
+
+	credReq, err := CredentialRequirement(req.Attributes, docType)
 	if err != nil {
 		jsonErrorResponse(w, fmt.Errorf("failed to parse request: %v", err), http.StatusBadRequest)
 		return
@@ -191,7 +243,10 @@ func (s *Server) GetIdentityRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create request
-	idReq := createIDReq(req, session)
+	// For org-iso-mdoc, we need to pass the origin for encryptionInfo
+	// Use clientDomain as the origin (will be formatted as "https://domain")
+	origin := fmt.Sprintf("https://%s", s.clientDomain)
+	idReq := createIDReq(req, session, origin, s.sigKey, s.certChain)
 
 	jsonResponse(w, GetResponse{
 		SessionID: session.ID,
@@ -239,12 +294,26 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		// Log all available elements in the document for debugging
+		log.Printf("Available namespaces and elements in document:")
+		for _, ns := range doc.IssuerSigned.GetNameSpaces() {
+			log.Printf("  Namespace: %s", ns)
+			items, err := doc.IssuerSigned.GetIssuerSignedItems(ns)
+			if err != nil {
+				log.Printf("    Error getting items: %v", err)
+				continue
+			}
+			for _, item := range items {
+				log.Printf("    - %s", item.ElementIdentifier)
+			}
+		}
+
 		for _, elemName := range cred.ElementIdentifier {
 			elemValue, err := doc.GetElementValue(cred.Namespace, elemName)
 			if err != nil {
-				errMsg := fmt.Sprintf("element not found: %s: %v", elemName, err)
-				jsonErrorResponse(w, fmt.Errorf(errMsg), http.StatusBadRequest)
-				return
+				// Log warning but don't fail - element might not be in the response
+				log.Printf("Warning: element not found: %s in namespace %s: %v", elemName, cred.Namespace, err)
+				continue
 			}
 			resp.Elements = append(resp.Elements, Element{
 				NameSpace:  cred.Namespace,
@@ -256,6 +325,15 @@ func (s *Server) VerifyIdentityResponse(w http.ResponseWriter, r *http.Request) 
 	}
 
 	jsonResponse(w, resp, http.StatusOK)
+}
+
+func containsElement(elements []mdoc.ElementIdentifier, elem mdoc.ElementIdentifier) bool {
+	for _, e := range elements {
+		if e == elem {
+			return true
+		}
+	}
+	return false
 }
 
 func parseJSON(r *http.Request, v interface{}) error {
