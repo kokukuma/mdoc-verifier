@@ -276,10 +276,17 @@
               </select>
             </div>
 
-            <div class="form-check mb-3">
+            <div class="form-check mb-2">
               <input class="form-check-input" type="checkbox" id="mdoc_sign_request" value="sign_request">
               <label class="form-check-label" for="mdoc_sign_request">
                 <i class="fas fa-signature me-1"></i> Enable Reader Authentication (sign request)
+              </label>
+            </div>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="mdoc_use_v11" value="use_v11">
+              <label class="form-check-label" for="mdoc_use_v11">
+                <i class="fas fa-apple me-1"></i> Use Version 1.1 (Apple DC API format)
               </label>
             </div>
 
@@ -461,8 +468,9 @@
         requestPayload.type = "digital_credentials_api";
         requestPayload.protocol = protocol;
         const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+        const useV11 = document.getElementById('mdoc_use_v11')?.checked || false;
         const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
-        requestPayload.parameters = { sign_request: signRequest, doc_type: docType };
+        requestPayload.parameters = { sign_request: signRequest, use_v11: useV11, doc_type: docType };
       }
 
       // Make server request to get actual credential request

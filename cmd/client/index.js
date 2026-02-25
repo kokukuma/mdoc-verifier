@@ -52,12 +52,16 @@ function prepareRequest(protocol) {
       break;
     case 'org-iso-mdoc':
       const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+      const useV11 = document.getElementById('mdoc_use_v11')?.checked || false;
+      const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
       requestData = {
         type: "digital_credentials_api",
         protocol: "org-iso-mdoc",
         attributes: selectedAttributes,
         parameters: {
-          sign_request: signRequest
+          sign_request: signRequest,
+          use_v11: useV11,
+          doc_type: docType
         }
       };
       break;
@@ -429,6 +433,7 @@ async function getIdentityWithMdocAPI() {
 
   try {
     const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+    const useV11 = document.getElementById('mdoc_use_v11')?.checked || false;
     const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
     const requestPayload = {
       type: "digital_credentials_api",
@@ -436,6 +441,7 @@ async function getIdentityWithMdocAPI() {
       attributes: selectedAttributes,
       parameters: {
         sign_request: signRequest,
+        use_v11: useV11,
         doc_type: docType
       }
     };
@@ -455,8 +461,8 @@ async function getIdentityWithMdocAPI() {
         handleApiError(err);
     });
 
-    console.log(req);
-    console.log(req.data);
+    console.log("req:", JSON.stringify(req, null, 2));
+    console.log("req.data:", JSON.stringify(req.data, null, 2));
 
     showLoading('Waiting for credential from your wallet...');
 
@@ -474,7 +480,7 @@ async function getIdentityWithMdocAPI() {
         mediation: "required",
     });
 
-    console.log(response);
+    console.log("response:", JSON.stringify(response, null, 2));
 
     showLoading('Verifying credentials...');
 
@@ -508,7 +514,15 @@ async function getIdentityWithMdocAPI() {
     console.log(verifyResult);
 
   } catch (error) {
-    console.error(error);
+    console.log("error:", JSON.stringify(error, null, 2));
+
+    // DC API エラーの詳細をログ出力
+    console.error("=== DC API Error (MdocAPI) ===");
+    console.error("name:", error.name);
+    console.error("message:", error.message);
+    console.error("code:", error.code);
+    console.error("stack:", error.stack);
+    console.error("full error:", error);
     handleApiError(error);
   }
 }

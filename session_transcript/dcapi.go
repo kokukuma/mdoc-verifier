@@ -3,7 +3,9 @@ package session_transcript
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"log"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -45,6 +47,13 @@ func DcapiHandover(encryptionInfo []byte, origin string) ([]byte, error) {
 
 	// Calculate SHA256 hash of dcapiInfo
 	dcapiInfoHash := sha256.Sum256(dcapiInfoBytes)
+
+	// Log dcapiInfo for debugging
+	log.Printf("DcapiHandover: encryptionInfo (hex): %s", hex.EncodeToString(encryptionInfo))
+	log.Printf("DcapiHandover: encryptionInfoB64: %s", encryptionInfoB64)
+	log.Printf("DcapiHandover: origin: %s", origin)
+	log.Printf("DcapiHandover: dcapiInfoBytes (hex): %s", hex.EncodeToString(dcapiInfoBytes))
+	log.Printf("DcapiHandover: dcapiInfoHash (hex): %s", hex.EncodeToString(dcapiInfoHash[:]))
 
 	// Create the dcapi handover array: ["dcapi", SHA256(dcapiInfo)]
 	dcapiHandover := []interface{}{

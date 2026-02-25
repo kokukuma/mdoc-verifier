@@ -50,13 +50,17 @@ func createIDReq(req GetRequest, session *Session, origin string, sigKey *ecdsa.
 		// ISO/IEC 18013-7 Annex C - DC API with mdoc
 		// Check if signing is requested (default: false for now to simplify debugging)
 		signRequest := false
+		useV11 := false
 		if req.Parameters != nil {
 			if val, ok := req.Parameters["sign_request"].(bool); ok {
 				signRequest = val
 			}
+			if val, ok := req.Parameters["use_v11"].(bool); ok {
+				useV11 = val
+			}
 		}
 
-		log.Printf("org-iso-mdoc: signRequest=%v", signRequest)
+		log.Printf("org-iso-mdoc: signRequest=%v, useV11=%v", signRequest, useV11)
 		log.Printf("org-iso-mdoc: CredentialRequirement=%+v", session.CredentialRequirement)
 		log.Printf("org-iso-mdoc: Credentials count=%d", len(session.CredentialRequirement.Credentials))
 
@@ -81,18 +85,38 @@ func createIDReq(req GetRequest, session *Session, origin string, sigKey *ecdsa.
 			readerCertChain = certChain
 		}
 
-		// Create the full request with encryptionInfo
-		// Use 16-byte nonce for org-iso-mdoc (ISO 18013-7 requirement)
-		nonce16 := session.GetNonceByte()[:16]
-		log.Printf("org-iso-mdoc: Creating request with %d docRequests, origin=%s, signRequest=%v", len(docRequests), origin, signRequest)
-		mdocReq, encryptionInfo, err := mdocapi.CreateFullRequest(
-			nonce16,
-			session.GetPublicKey(),
-			origin,
-			docRequests,
-			readerKey,
-			readerCertChain,
-		)
+		var mdocReq *mdocapi.MdocAPIRequest
+		var encryptionInfo []byte
+		var err error
+
+		if useV11 {
+			// Version 1.1 (Apple DC API compatible)
+			// Use 32-byte nonce for version 1.1
+			nonce32 := session.GetNonceByte()[:32]
+			log.Printf("org-iso-mdoc: Creating V1.1 request with %d docRequests, origin=%s, signRequest=%v", len(docRequests), origin, signRequest)
+			mdocReq, encryptionInfo, err = mdocapi.CreateFullRequestV11(
+				nonce32,
+				session.GetPublicKey(),
+				origin,
+				docRequests,
+				readerKey,
+				readerCertChain,
+			)
+		} else {
+			// Version 1.0 (original)
+			// Use 16-byte nonce for version 1.0
+			nonce16 := session.GetNonceByte()[:16]
+			log.Printf("org-iso-mdoc: Creating V1.0 request with %d docRequests, origin=%s, signRequest=%v", len(docRequests), origin, signRequest)
+			mdocReq, encryptionInfo, err = mdocapi.CreateFullRequest(
+				nonce16,
+				session.GetPublicKey(),
+				origin,
+				docRequests,
+				readerKey,
+				readerCertChain,
+			)
+		}
+
 		if err != nil {
 			log.Printf("org-iso-mdoc: Failed to create request: %v", err)
 			return nil

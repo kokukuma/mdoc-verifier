@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"log"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/kokukuma/mdoc-verifier/mdoc"
@@ -253,6 +254,11 @@ func createReaderAuth(
 		return nil, fmt.Errorf("failed to encode tagged ReaderAuthentication: %w", err)
 	}
 
+	// Log the payload structure for debugging
+	log.Printf("createReaderAuth: itemsRequestBytes (hex): %x", itemsRequestBytes)
+	log.Printf("createReaderAuth: sessionTranscript (hex): %x", sessionTranscript)
+	log.Printf("createReaderAuth: readerAuthTaggedBytes (payload for signing, hex): %x", readerAuthTaggedBytes)
+
 	// Decode certificate chain
 	certs := make([][]byte, len(readerCertChain))
 	for i, certB64 := range readerCertChain {
@@ -312,4 +318,144 @@ func ConvertCredentialToDocRequest(docType mdoc.DocType, namespace mdoc.NameSpac
 			namespace: elemMap,
 		},
 	}
+}
+
+// ============================================================================
+// Version 1.1 API (Apple DC API compatible)
+// ============================================================================
+
+// CreateRequestV11 creates a MdocAPIRequest using version 1.1 format
+// This format is compatible with Apple's DC API implementation
+// Key differences from 1.0:
+// - readerAuth moved to top-level "readerAuthAlg" array
+// - deviceRequestInfo added for use case information
+func CreateRequestV11(
+	docRequests []DocRequestInput,
+	sessionTranscript []byte,
+	readerKey *ecdsa.PrivateKey,
+	readerCertChain []string,
+) (*MdocAPIRequest, []byte, error) {
+	if len(docRequests) == 0 {
+		return nil, nil, fmt.Errorf("docRequests cannot be empty")
+	}
+	if len(sessionTranscript) == 0 {
+		return nil, nil, fmt.Errorf("sessionTranscript cannot be empty")
+	}
+
+	// Build docRequests array (without readerAuth - moved to top level)
+	docRequestsArray := make([]interface{}, 0, len(docRequests))
+	readerAuthAlgArray := make([]interface{}, 0)
+
+	for _, dr := range docRequests {
+		// Build itemsRequest
+		itemsRequest := map[string]interface{}{
+			"docType":    string(dr.DocType),
+			"nameSpaces": buildNameSpaces(dr.Namespaces),
+		}
+
+		itemsRequestBytes, err := deterministicEncMode.Marshal(itemsRequest)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to encode itemsRequest: %w", err)
+		}
+
+		// Create Tagged(24, itemsRequestBytes)
+		itemsRequestTagged := cbor.Tag{
+			Number:  24,
+			Content: itemsRequestBytes,
+		}
+
+		// docRequest contains itemsRequest
+		docRequest := map[string]interface{}{
+			"itemsRequest": itemsRequestTagged,
+		}
+
+		// Build readerAuth for this docRequest
+		if readerKey != nil {
+			readerAuthBytes, err := createReaderAuth(itemsRequestBytes, sessionTranscript, readerKey, readerCertChain)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to create readerAuth: %w", err)
+			}
+
+			// Add readerAuth to docRequest (V1.0 style) as well as readerAuthAlg (V1.1 style)
+			docRequest["readerAuth"] = cbor.RawMessage(readerAuthBytes)
+			readerAuthAlgArray = append(readerAuthAlgArray, cbor.RawMessage(readerAuthBytes))
+		}
+
+		docRequestsArray = append(docRequestsArray, docRequest)
+	}
+
+	// Build deviceRequestInfo
+	// useCases: array of use case objects
+	// - mandatory: whether this use case is required
+	// - documentSets: array of document set indices (referencing docRequests)
+	documentSets := make([]interface{}, len(docRequests))
+	for i := range docRequests {
+		documentSets[i] = i // Reference to docRequests index
+	}
+
+	deviceRequestInfo := map[string]interface{}{
+		"useCases": []interface{}{
+			map[string]interface{}{
+				"mandatory":    true,
+				"documentSets": []interface{}{documentSets},
+			},
+		},
+	}
+
+	deviceRequestInfoBytes, err := deterministicEncMode.Marshal(deviceRequestInfo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode deviceRequestInfo: %w", err)
+	}
+
+	// Build deviceRequest with version 1.1 structure
+	deviceRequest := map[string]interface{}{
+		"version":     "1.1",
+		"docRequests": docRequestsArray,
+		"deviceRequestInfo": cbor.Tag{
+			Number:  24,
+			Content: deviceRequestInfoBytes,
+		},
+	}
+
+	// Add readerAuthAlg if signing key is provided
+	if readerKey != nil && len(readerAuthAlgArray) > 0 {
+		deviceRequest["readerAuthAlg"] = readerAuthAlgArray
+	}
+
+	deviceRequestBytes, err := deterministicEncMode.Marshal(deviceRequest)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode deviceRequest: %w", err)
+	}
+
+	return &MdocAPIRequest{
+		DeviceRequest: b64.EncodeToString(deviceRequestBytes),
+	}, deviceRequestBytes, nil
+}
+
+// CreateFullRequestV11 creates a complete MdocAPIRequest with version 1.1 format
+// Uses 32-byte nonce as per Apple's implementation
+func CreateFullRequestV11(
+	nonce []byte,
+	publicKey *ecdh.PublicKey,
+	origin string,
+	docRequests []DocRequestInput,
+	readerKey *ecdsa.PrivateKey,
+	readerCertChain []string,
+) (*MdocAPIRequest, []byte, error) {
+	// Prepare encryption info and session transcript
+	encryptionInfoBytes, sessTrans, err := PrepareEncryptionInfo(nonce, publicKey, origin)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create the request with version 1.1
+	req, _, err := CreateRequestV11(docRequests, sessTrans, readerKey, readerCertChain)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Set encryptionInfo
+	req.EncryptionInfo = b64.EncodeToString(encryptionInfoBytes)
+
+	return req, encryptionInfoBytes, nil
 }
