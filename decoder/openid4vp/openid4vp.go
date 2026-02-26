@@ -19,12 +19,12 @@ type AuthorizationRequest struct {
 	ResponseType           string                          `json:"response_type"`
 	Nonce                  string                          `json:"nonce,omitempty"`
 	PresentationDefinition document.PresentationDefinition `json:"presentation_definition,omitempty"`
-	DCQLQuery              document.DCQLQuery              `json:"dcql_query,omitempty"`
+	DCQLQuery              *document.DCQLQuery             `json:"dcql_query,omitempty"`
 	ResponseURI            string                          `json:"response_uri,omitempty"`
 	ResponseMode           string                          `json:"response_mode,omitempty"`
 	Scope                  string                          `json:"scope,omitempty"`
 	State                  string                          `json:"state,omitempty"`
-	ClientMetadata         ClientMetadata                  `json:"client_metadata,omitempty"`
+	ClientMetadata         *ClientMetadata                 `json:"client_metadata,omitempty"`
 }
 
 type ClientMetadata struct {
@@ -54,8 +54,8 @@ type PresentationSubmission struct {
 	DescriptorMap interface{} `json:"descriptor_map"`
 }
 
-func CreateClientMetadata(serverDomain string) ClientMetadata {
-	return ClientMetadata{
+func CreateClientMetadata(serverDomain string) *ClientMetadata {
+	return &ClientMetadata{
 		AuthorizationEncryptedResopnseAlg: "ECDH-ES",
 		AuthorizationEncryptedResopnseEnc: "A128CBC-HS256",
 		IDTokenEncryptedResponseAlg:       "RSA-OAEP-256",

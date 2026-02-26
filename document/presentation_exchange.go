@@ -3,18 +3,18 @@ package document
 // https://identity.foundation/presentation-exchange/spec/v2.0.0/
 
 type PresentationDefinition struct {
-	ID               string            `json:"id"`
+	ID               string            `json:"id,omitempty"`
 	InputDescriptors []InputDescriptor `json:"input_descriptors"`
 }
 
 type InputDescriptor struct {
-	Name                   string                  `json:"name"`
+	Name                   string                  `json:"name,omitempty"`
 	ID                     string                  `json:"id"`
 	Format                 Format                  `json:"format,omitempty"`
 	Constraints            Constraints             `json:"constraints"`
-	Purpose                string                  `json:"purpose"`
-	SubmissionRequirements []SubmissionRequirement `json:"submission_requirements"`
-	Group                  []string                `json:"group"`
+	Purpose                string                  `json:"purpose,omitempty"`
+	SubmissionRequirements []SubmissionRequirement `json:"submission_requirements,omitempty"`
+	Group                  []string                `json:"group,omitempty"`
 }
 
 type SubmissionRequirement struct {
@@ -59,9 +59,9 @@ type IsHolder struct {
 }
 
 type Format struct {
-	MsoMdoc   MsoMdoc   `json:"mso_mdoc,omitempty"`
-	LdpVP     LdpVP     `json:"ldp_vp,omitempty"`
-	JwtVCJSON JwtVCJSON `json:"jwt_vc_json,omitempty"`
+	MsoMdoc   MsoMdoc    `json:"mso_mdoc,omitempty"`
+	LdpVP     *LdpVP     `json:"ldp_vp,omitempty"`
+	JwtVCJSON *JwtVCJSON `json:"jwt_vc_json,omitempty"`
 }
 
 type MsoMdoc struct {
@@ -78,7 +78,7 @@ type LdpVP struct {
 
 type PathField struct {
 	Path           []string `json:"path"`
-	Filter         Filter   `json:"filter,omitempty"`
+	Filter         *Filter  `json:"filter,omitempty"`
 	IntentToRetain bool     `json:"intent_to_retain"`
 	ID             string   `json:"id,omitempty"`
 	Purpose        string   `json:"purpose,omitempty"`

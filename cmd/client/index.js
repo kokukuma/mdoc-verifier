@@ -25,7 +25,7 @@ function prepareRequest(protocol) {
   let requestData;
 
   // Determine if it's Digital Credentials API or OpenID4VP flow
-  const isDigitalCredentialsAPI = protocol === 'preview';
+  const isDigitalCredentialsAPI = protocol === 'preview' || protocol === 'org-iso-mdoc';
   const isOpenID4VP = protocol === 'openid4vp' || protocol === 'eudiw';
 
   switch(protocol) {
@@ -48,6 +48,21 @@ function prepareRequest(protocol) {
         type: "openid4vp",
         variant: "eudiw",
         attributes: selectedAttributes
+      };
+      break;
+    case 'org-iso-mdoc':
+      const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+      const useV11 = document.getElementById('mdoc_use_v11')?.checked || false;
+      const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
+      requestData = {
+        type: "digital_credentials_api",
+        protocol: "org-iso-mdoc",
+        attributes: selectedAttributes,
+        parameters: {
+          sign_request: signRequest,
+          use_v11: useV11,
+          doc_type: docType
+        }
       };
       break;
     default:
@@ -265,13 +280,14 @@ async function getIdentity() {
     // https://wicg.github.io/digital-credentials/
     const response = await navigator.credentials.get({
         digital: {
-          providers: [
+          requests: [
             {
               protocol: "preview",
-              request: req.data,
+              data: req.data,
             }
           ]
         },
+        mediation: "required",
     });
 
     console.log(response);
@@ -356,13 +372,14 @@ async function getIdentityWithOpenid4VP() {
     // https://wicg.github.io/digital-credentials/
     const response = await navigator.credentials.get({
         digital: {
-          providers: [
+          requests: [
             {
               protocol: "openid4vp",
-              request: req.data,
+              data: req.data,
             }
           ]
         },
+        mediation: "required",
     });
 
     console.log(response);
@@ -399,6 +416,113 @@ async function getIdentityWithOpenid4VP() {
 
   } catch (error) {
     console.error(error);
+    handleApiError(error);
+  }
+}
+
+async function getIdentityWithMdocAPI() {
+  // Get selected attributes
+  const selectedAttributes = getSelectedAttributes();
+
+  if (selectedAttributes.length === 0) {
+    alert("Please select at least one attribute to request.");
+    return;
+  }
+
+  showLoading('Requesting identity via ISO mdoc API protocol...');
+
+  try {
+    const signRequest = document.getElementById('mdoc_sign_request')?.checked || false;
+    const useV11 = document.getElementById('mdoc_use_v11')?.checked || false;
+    const docType = document.getElementById('mdoc_doctype')?.value || 'org.iso.18013.5.1.mDL';
+    const requestPayload = {
+      type: "digital_credentials_api",
+      protocol: "org-iso-mdoc",
+      attributes: selectedAttributes,
+      parameters: {
+        sign_request: signRequest,
+        use_v11: useV11,
+        doc_type: docType
+      }
+    };
+
+    // Store the request data for display
+    updateRequestDisplay(requestPayload);
+
+    const req = await $.post(
+        "https://{{.ServerDomain}}/getIdentityRequest",
+        JSON.stringify(requestPayload),
+        function (data, status) {
+          return data;
+        },
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleApiError(err);
+    });
+
+    console.log("req:", JSON.stringify(req, null, 2));
+    console.log("req.data:", JSON.stringify(req.data, null, 2));
+
+    showLoading('Waiting for credential from your wallet...');
+
+    // https://wicg.github.io/digital-credentials/
+    // For org-iso-mdoc, the data contains both deviceRequest and encryptionInfo as JSON
+    const response = await navigator.credentials.get({
+        digital: {
+          requests: [
+            {
+              protocol: "org-iso-mdoc",
+              data: req.data,
+            }
+          ]
+        },
+        mediation: "required",
+    });
+
+    console.log("response:", JSON.stringify(response, null, 2));
+
+    showLoading('Verifying credentials...');
+
+    // For org-iso-mdoc, response.data is an object {response: "base64..."}, need to stringify
+    const verifyRequest = {
+      session_id: req.session_id,
+      protocol: response.protocol,
+      data: JSON.stringify(response.data),
+      origin: location.origin,
+    };
+
+    // Update with verification request
+    updateRequestDisplay({
+      initialRequest: requestPayload,
+      verificationRequest: verifyRequest
+    });
+
+    const verifyResult = await $.post(
+        "https://{{.ServerDomain}}/verifyIdentityResponse",
+        JSON.stringify(verifyRequest),
+        function (data, status) {
+          hideLoading();
+          showFullResult(data, true);
+        },
+        'json'
+    ).fail(function(err) {
+        console.error(err);
+        handleApiError(err);
+    });
+
+    console.log(verifyResult);
+
+  } catch (error) {
+    console.log("error:", JSON.stringify(error, null, 2));
+
+    // DC API エラーの詳細をログ出力
+    console.error("=== DC API Error (MdocAPI) ===");
+    console.error("name:", error.name);
+    console.error("message:", error.message);
+    console.error("code:", error.code);
+    console.error("stack:", error.stack);
+    console.error("full error:", error);
     handleApiError(error);
   }
 }

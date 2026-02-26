@@ -1,2 +1,5 @@
 vendor
 .envrc
+internal/cryptoroot/pem/appleKey.pem
+cmd/client/cert.pem
+cmd/client/key.pem
