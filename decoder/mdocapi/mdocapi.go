@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
+	b64 = base64.URLEncoding.WithPadding(base64.NoPadding)
 
 	// Deterministic CBOR encoder for consistent key ordering
 	deterministicEncMode cbor.EncMode
@@ -324,10 +324,10 @@ func ConvertCredentialToDocRequest(docType mdoc.DocType, namespace mdoc.NameSpac
 // Version 1.1 API (Apple DC API compatible)
 // ============================================================================
 
-// CreateRequestV11 creates a MdocAPIRequest using version 1.1 format
-// This format is compatible with Apple's DC API implementation
+// CreateRequestV11 creates a MdocAPIRequest using version 1.1 format (ISO 18013-5 v2)
 // Key differences from 1.0:
-// - readerAuth moved to top-level "readerAuthAlg" array
+// - docRequest contains only itemsRequest (no per-docRequest readerAuth)
+// - readerAuthAll at top-level signs over all itemsRequests + deviceRequestInfo
 // - deviceRequestInfo added for use case information
 func CreateRequestV11(
 	docRequests []DocRequestInput,
@@ -342,9 +342,9 @@ func CreateRequestV11(
 		return nil, nil, fmt.Errorf("sessionTranscript cannot be empty")
 	}
 
-	// Build docRequests array (without readerAuth - moved to top level)
+	// Build docRequests array and collect itemsRequestBytes for ReaderAuthAll
 	docRequestsArray := make([]interface{}, 0, len(docRequests))
-	readerAuthAlgArray := make([]interface{}, 0)
+	allItemsRequestBytes := make([][]byte, 0, len(docRequests))
 
 	for _, dr := range docRequests {
 		// Build itemsRequest
@@ -364,33 +364,19 @@ func CreateRequestV11(
 			Content: itemsRequestBytes,
 		}
 
-		// docRequest contains itemsRequest
+		// v1.1: docRequest contains only itemsRequest
 		docRequest := map[string]interface{}{
 			"itemsRequest": itemsRequestTagged,
 		}
 
-		// Build readerAuth for this docRequest
-		if readerKey != nil {
-			readerAuthBytes, err := createReaderAuth(itemsRequestBytes, sessionTranscript, readerKey, readerCertChain)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create readerAuth: %w", err)
-			}
-
-			// Add readerAuth to docRequest (V1.0 style) as well as readerAuthAlg (V1.1 style)
-			docRequest["readerAuth"] = cbor.RawMessage(readerAuthBytes)
-			readerAuthAlgArray = append(readerAuthAlgArray, cbor.RawMessage(readerAuthBytes))
-		}
-
+		allItemsRequestBytes = append(allItemsRequestBytes, itemsRequestBytes)
 		docRequestsArray = append(docRequestsArray, docRequest)
 	}
 
 	// Build deviceRequestInfo
-	// useCases: array of use case objects
-	// - mandatory: whether this use case is required
-	// - documentSets: array of document set indices (referencing docRequests)
 	documentSets := make([]interface{}, len(docRequests))
 	for i := range docRequests {
-		documentSets[i] = i // Reference to docRequests index
+		documentSets[i] = i
 	}
 
 	deviceRequestInfo := map[string]interface{}{
@@ -417,9 +403,20 @@ func CreateRequestV11(
 		},
 	}
 
-	// Add readerAuthAlg if signing key is provided
-	if readerKey != nil && len(readerAuthAlgArray) > 0 {
-		deviceRequest["readerAuthAlg"] = readerAuthAlgArray
+	// Add readerAuthAll if signing key is provided
+	if readerKey != nil {
+		readerAuthAllBytes, err := createReaderAuthAll(
+			allItemsRequestBytes,
+			deviceRequestInfoBytes,
+			sessionTranscript,
+			readerKey,
+			readerCertChain,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create readerAuthAll: %w", err)
+		}
+		// readerAuthAll = [+ ReaderAuthAll] (array of COSE_Sign1)
+		deviceRequest["readerAuthAll"] = []interface{}{cbor.RawMessage(readerAuthAllBytes)}
 	}
 
 	deviceRequestBytes, err := deterministicEncMode.Marshal(deviceRequest)
@@ -430,6 +427,93 @@ func CreateRequestV11(
 	return &MdocAPIRequest{
 		DeviceRequest: b64.EncodeToString(deviceRequestBytes),
 	}, deviceRequestBytes, nil
+}
+
+// createReaderAuthAll creates a COSE_Sign1 for v1.1 Reader Authentication (ISO 18013-5 v2)
+//
+// ReaderAuthenticationAll = [
+//
+//	"ReaderAuthenticationAll",
+//	SessionTranscript,
+//	ItemsRequestBytesAll,          ; [* #6.24(bstr .cbor ItemsRequest)]
+//	DeviceRequestInfoBytes / null  ; #6.24(bstr .cbor DeviceRequestInfo)
+//
+// ]
+func createReaderAuthAll(
+	allItemsRequestBytes [][]byte,
+	deviceRequestInfoBytes []byte,
+	sessionTranscript []byte,
+	readerKey *ecdsa.PrivateKey,
+	readerCertChain []string,
+) ([]byte, error) {
+	// Build ItemsRequestBytesAll: [Tag(24, bytes1), Tag(24, bytes2), ...]
+	itemsRequestBytesAll := make([]interface{}, len(allItemsRequestBytes))
+	for i, irBytes := range allItemsRequestBytes {
+		itemsRequestBytesAll[i] = cbor.Tag{Number: 24, Content: irBytes}
+	}
+
+	// Build ReaderAuthenticationAll
+	readerAuthAll := []interface{}{
+		"ReaderAuthenticationAll",
+		cbor.RawMessage(sessionTranscript),
+		itemsRequestBytesAll,
+		cbor.Tag{Number: 24, Content: deviceRequestInfoBytes},
+	}
+
+	readerAuthAllBytes, err := deterministicEncMode.Marshal(readerAuthAll)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode ReaderAuthenticationAll: %w", err)
+	}
+
+	// Wrap in Tagged(24, ...) as detached content
+	readerAuthAllTaggedBytes, err := deterministicEncMode.Marshal(cbor.Tag{Number: 24, Content: readerAuthAllBytes})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode tagged ReaderAuthenticationAll: %w", err)
+	}
+
+	log.Printf("createReaderAuthAll: readerAuthAllTaggedBytes (payload for signing, hex): %x", readerAuthAllTaggedBytes)
+
+	// Decode certificate chain
+	certs := make([][]byte, len(readerCertChain))
+	for i, certB64 := range readerCertChain {
+		certBytes, err := base64.StdEncoding.DecodeString(certB64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode certificate %d: %w", i, err)
+		}
+		certs[i] = certBytes
+	}
+
+	// Create COSE_Sign1 with detached payload
+	signer, err := cose.NewSigner(cose.AlgorithmES256, readerKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	msg := cose.Sign1Message{
+		Headers: cose.Headers{
+			Protected: cose.ProtectedHeader{
+				cose.HeaderLabelAlgorithm: cose.AlgorithmES256,
+			},
+			Unprotected: cose.UnprotectedHeader{
+				cose.HeaderLabelX5Chain: certs,
+			},
+		},
+		Payload: readerAuthAllTaggedBytes,
+	}
+
+	if err := msg.Sign(rand.Reader, nil, signer); err != nil {
+		return nil, fmt.Errorf("failed to sign: %w", err)
+	}
+
+	// Clear payload for detached signature
+	msg.Payload = nil
+
+	signedBytes, err := msg.MarshalCBOR()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal COSE_Sign1: %w", err)
+	}
+
+	return signedBytes, nil
 }
 
 // CreateFullRequestV11 creates a complete MdocAPIRequest with version 1.1 format

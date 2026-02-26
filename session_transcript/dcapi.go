@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	b64 = base64.URLEncoding.WithPadding(base64.StdPadding)
+	b64 = base64.URLEncoding.WithPadding(base64.NoPadding)
 )
 
 const DCAPI_HANDOVER = "dcapi"
